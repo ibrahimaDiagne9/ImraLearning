@@ -9,13 +9,9 @@ export const Footer = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
                     {/* Brand Section */}
                     <div className="space-y-6">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-blue-600/20 p-2 rounded-lg">
-                                <MessageSquare className="w-6 h-6 text-blue-500" />
-                            </div>
-                            <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-                                e-MRA
-                            </span>
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-xl">I</div>
+                            <span className="text-xl font-black text-white tracking-tighter">ImraLearning<span className="text-blue-500">.</span></span>
                         </div>
                         <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
                             Empowering the next generation of developers through community-driven learning and expert mentorship.
@@ -58,7 +54,7 @@ export const Footer = () => {
 
                     <div>
                         <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-xs">Stay Updated</h4>
-                        <p className="text-gray-400 text-sm mb-6">Get the latest news and updates from the e-MRA community.</p>
+                        <p className="text-gray-500 text-sm font-medium">© {currentYear} ImraLearning. All rights reserved.</p>
                         <div className="relative group">
                             <input
                                 type="email"
