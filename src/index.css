@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-primary: #7c3aed;
+  --color-primary-hover: #6d28d9;
+  --color-secondary: #a78bfa;
+  --font-sans: Inter, sans-serif;
+}
+
+/* Custom utility for no-scrollbar if needed, or other global styles */
+body {
+  background-color: var(--color-background);
+  color: white;
+}
+
+/* Custom scrollbar for better aesthetics */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Basic article preview styles */
+.article-preview h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.article-preview h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: white;
+}
+
+.article-preview h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.article-preview p {
+  margin-bottom: 1rem;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+.article-preview b,
+.article-preview strong {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.article-preview i,
+.article-preview em {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.article-preview ul,
+.article-preview ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+  color: #94a3b8;
+}
+
+.article-preview li {
+  margin-bottom: 0.25rem;
+}
