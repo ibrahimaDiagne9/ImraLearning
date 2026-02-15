@@ -1,3 +1,4 @@
+// Production Build Fix
 import { Twitter, Github, Linkedin, Mail } from 'lucide-react';
 
 export const Footer = () => {
