@@ -62,9 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('xp', profile.xp_points.toString());
             localStorage.setItem('isPro', (profile.is_pro || false).toString());
             localStorage.setItem('tier', profile.membership?.tier || 'free');
-        } catch (error) {
-            console.error('Failed to fetch profile', error);
-            logout();
+        } catch (error: any) {
+            console.error('[AuthContext] Failed to fetch profile', error);
+            // Only logout if it's a 401/403 (Auth issue), not for network issues
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                logout();
+            }
         }
     };
 
@@ -87,17 +90,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const login = async (credentials: LoginCredentials) => {
-        const response = await api.post('/token/', credentials);
-        const { access, refresh } = response.data;
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
-        setIsAuthenticated(true);
-        await fetchProfile();
+        try {
+            const response = await api.post('/token/', credentials);
+            const { access, refresh } = response.data;
+            localStorage.setItem('access_token', access);
+            localStorage.setItem('refresh_token', refresh);
+            setIsAuthenticated(true);
+            await fetchProfile();
+        } catch (error) {
+            console.error('[AuthContext] Login failed', error);
+            throw error; // Let the UI handle the error (e.g., showing a message)
+        }
     };
 
     const register = async (userData: RegisterData) => {
-        await api.post('/auth/register/', userData);
-        await login({ username: userData.username, password: userData.password });
+        try {
+            await api.post('/auth/register/', userData);
+            await login({ username: userData.username, password: userData.password });
+        } catch (error) {
+            console.error('[AuthContext] Registration failed', error);
+            throw error;
+        }
     };
 
     const logout = () => {

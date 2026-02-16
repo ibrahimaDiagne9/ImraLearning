@@ -30,6 +30,14 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // Handle Network Errors (e.g., Server Down)
+        if (!error.response) {
+            console.error('[API Network Error]', error);
+            const networkErrorMessage = 'Cannot connect to the server. Please check your internet connection or try again later.';
+            toast.error(networkErrorMessage);
+            return Promise.reject(new Error(networkErrorMessage));
+        }
+
         // Handle 401 Unauthorized (Token expired)
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
@@ -44,6 +52,7 @@ apiClient.interceptors.response.use(
                     originalRequest.headers.Authorization = `Bearer ${access}`;
                     return apiClient(originalRequest);
                 } catch (refreshError) {
+                    console.error('[API Refresh Error]', refreshError);
                     localStorage.removeItem('access_token');
                     localStorage.removeItem('refresh_token');
                     window.location.href = '/login';
@@ -57,6 +66,8 @@ apiClient.interceptors.response.use(
             error.response?.data?.detail ||
             error.message ||
             'An unexpected error occurred';
+
+        console.error(`[API Error ${error.response?.status}]`, error.response?.data || error.message);
 
         // Don't show toast for 401 as it's handled above, 
         // and maybe silent for some specific endpoints if needed
