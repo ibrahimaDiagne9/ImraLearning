@@ -23,6 +23,7 @@ interface User {
     };
 }
 
+
 interface AuthContextType {
     isAuthenticated: boolean;
     user: User | null;
