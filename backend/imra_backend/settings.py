@@ -177,12 +177,14 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
+raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
+CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_cors.split(',') if origin.strip()]
 CORS_ALLOW_ALL_ORIGINS = DEBUG # Only allow all in debug mode
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Settings
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173').split(',')
+raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173')
+CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_csrf.split(',') if origin.strip()]
 
 # PayDunya Settings
 PAYDUNYA_MASTER_KEY = os.getenv('PAYDUNYA_MASTER_KEY')
