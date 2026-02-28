@@ -1,11 +1,14 @@
 import { Modal } from '../ui/Modal';
-import { MessageSquare, ThumbsUp, Send, Clock } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Send, Clock, Mail } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useMessages } from '../../context/MessageContext';
 import { useState, useEffect } from 'react';
 import { getDiscussionDetails, postReply, likeDiscussion, likeReply } from '../../services/api';
 
 interface Reply {
     id: number;
     author: {
+        id: number;
         username: string;
         role: string;
     };
@@ -20,6 +23,7 @@ interface Discussion {
     title: string;
     content: string;
     author: {
+        id: number;
         username: string;
         role: string;
     };
@@ -42,6 +46,17 @@ export const DiscussionDetailModal = ({ isOpen, onClose, discussionId }: Discuss
     const [newReply, setNewReply] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
+    const { createConversation, setActiveConversationId } = useMessages();
+
+    const handleMessageUser = async (userId: number) => {
+        const convId = await createConversation(userId.toString());
+        if (convId) {
+            setActiveConversationId(convId);
+            onClose();
+            navigate('/messages');
+        }
+    };
 
     useEffect(() => {
         if (isOpen && discussionId) {
@@ -162,108 +177,126 @@ export const DiscussionDetailModal = ({ isOpen, onClose, discussionId }: Discuss
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {discussion.is_resolved && (
-                                            <span className="bg-green-500/10 text-green-400 text-[10px] uppercase font-bold px-2 py-1 rounded border border-green-500/20">
-                                                Resolved
-                                            </span>
-                                        )}
+                                    <div className="flex items-center gap-3">
                                         <button
-                                            onClick={handleToggleResolve}
-                                            className="text-[10px] uppercase font-bold px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                                            onClick={() => handleMessageUser(discussion.author.id)}
+                                            className="p-2 text-blue-400 hover:text-blue-300 bg-blue-500/10 rounded-lg border border-blue-500/20 transition-all flex items-center gap-2 text-xs font-bold"
                                         >
-                                            {discussion.is_resolved ? 'Reopen' : 'Resolve'}
+                                            <Mail className="w-4 h-4" />
+                                            Message
                                         </button>
+                                        <div className="flex items-center gap-2">
+                                            {discussion.is_resolved && (
+                                                <span className="bg-green-500/10 text-green-400 text-[10px] uppercase font-bold px-2 py-1 rounded border border-green-500/20">
+                                                    Resolved
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={handleToggleResolve}
+                                                className="text-[10px] uppercase font-bold px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                                            >
+                                                {discussion.is_resolved ? 'Reopen' : 'Resolve'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p className="text-gray-300 text-sm leading-relaxed mb-6 whitespace-pre-wrap">
+                                        {discussion.content}
+                                    </p>
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            onClick={handleLikeDiscussion}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${discussion.is_liked
+                                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                                                : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 border border-transparent'
+                                                }`}
+                                        >
+                                            <ThumbsUp className={`w-4 h-4 ${discussion.is_liked ? 'fill-current' : ''}`} />
+                                            <span>{discussion.likes_count} Likes</span>
+                                        </button>
+                                        <div className="text-gray-500 text-sm font-medium flex items-center gap-2">
+                                            <MessageSquare className="w-4 h-4" />
+                                            <span>{discussion.replies.length} Replies</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <p className="text-gray-300 text-sm leading-relaxed mb-6 whitespace-pre-wrap">
-                                    {discussion.content}
-                                </p>
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={handleLikeDiscussion}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${discussion.is_liked
-                                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
-                                            : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 border border-transparent'
-                                            }`}
-                                    >
-                                        <ThumbsUp className={`w-4 h-4 ${discussion.is_liked ? 'fill-current' : ''}`} />
-                                        <span>{discussion.likes_count} Likes</span>
-                                    </button>
-                                    <div className="text-gray-500 text-sm font-medium flex items-center gap-2">
-                                        <MessageSquare className="w-4 h-4" />
-                                        <span>{discussion.replies.length} Replies</span>
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* Replies Section */}
-                            <div className="space-y-4 mb-6">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider ml-1">
-                                    Responses
-                                </h3>
-                                {discussion.replies.length === 0 ? (
-                                    <div className="text-center py-8 bg-gray-900/50 rounded-xl border border-dashed border-gray-700">
-                                        <p className="text-gray-500 text-sm">No replies yet. Be the first to join the conversation!</p>
-                                    </div>
-                                ) : (
-                                    discussion.replies.map((reply) => (
-                                        <div key={reply.id} className="bg-gray-900/40 rounded-xl p-4 border border-gray-800 ml-4 relative">
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white text-xs font-bold">
-                                                    {reply.author.username.charAt(0)}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-blue-400 text-xs font-bold">{reply.author.username}</span>
-                                                            <span className="text-gray-600 text-[10px]">•</span>
-                                                            <span className="text-gray-500 text-[10px]">{new Date(reply.created_at).toLocaleDateString()}</span>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => handleLikeReply(reply.id)}
-                                                            className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${reply.is_liked
-                                                                ? 'text-blue-400 bg-blue-400/10'
-                                                                : 'text-gray-500 hover:text-gray-300'
-                                                                }`}
-                                                        >
-                                                            <ThumbsUp className={`w-3 h-3 ${reply.is_liked ? 'fill-current' : ''}`} />
-                                                            <span>{reply.likes_count}</span>
-                                                        </button>
+                                {/* Replies Section */}
+                                <div className="space-y-4 mb-6">
+                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider ml-1">
+                                        Responses
+                                    </h3>
+                                    {discussion.replies.length === 0 ? (
+                                        <div className="text-center py-8 bg-gray-900/50 rounded-xl border border-dashed border-gray-700">
+                                            <p className="text-gray-500 text-sm">No replies yet. Be the first to join the conversation!</p>
+                                        </div>
+                                    ) : (
+                                        discussion.replies.map((reply) => (
+                                            <div key={reply.id} className="bg-gray-900/40 rounded-xl p-4 border border-gray-800 ml-4 relative">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white text-xs font-bold">
+                                                        {reply.author.username.charAt(0)}
                                                     </div>
-                                                    <p className="text-gray-300 text-xs leading-relaxed">
-                                                        {reply.content}
-                                                    </p>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-blue-400 text-xs font-bold">{reply.author.username}</span>
+                                                                <span className="text-gray-600 text-[10px]">•</span>
+                                                                <span className="text-gray-500 text-[10px]">{new Date(reply.created_at).toLocaleDateString()}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => handleMessageUser(reply.author.id)}
+                                                                    className="text-gray-500 hover:text-blue-400 p-1 transition-colors"
+                                                                    title="Message author"
+                                                                >
+                                                                    <Mail className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleLikeReply(reply.id)}
+                                                                    className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${reply.is_liked
+                                                                        ? 'text-blue-400 bg-blue-400/10'
+                                                                        : 'text-gray-500 hover:text-gray-300'
+                                                                        }`}
+                                                                >
+                                                                    <ThumbsUp className={`w-3 h-3 ${reply.is_liked ? 'fill-current' : ''}`} />
+                                                                    <span>{reply.likes_count}</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-gray-300 text-xs leading-relaxed">
+                                                            {reply.content}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Reply Input */}
-                        <div className="pt-4 border-t border-gray-800">
-                            <form onSubmit={handlePostReply} className="relative">
-                                <textarea
-                                    value={newReply}
-                                    onChange={(e) => setNewReply(e.target.value)}
-                                    placeholder="Write a response..."
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none pr-12"
-                                    rows={2}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!newReply.trim() || isSubmitting}
-                                    className="absolute right-2 bottom-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20"
-                                >
-                                    {isSubmitting ? (
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        <Send className="w-4 h-4" />
+                                        ))
                                     )}
-                                </button>
-                            </form>
+                                </div>
+                            </div>
+
+                            {/* Reply Input */}
+                            <div className="pt-4 border-t border-gray-800">
+                                <form onSubmit={handlePostReply} className="relative">
+                                    <textarea
+                                        value={newReply}
+                                        onChange={(e) => setNewReply(e.target.value)}
+                                        placeholder="Write a response..."
+                                        className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none pr-12"
+                                        rows={2}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!newReply.trim() || isSubmitting}
+                                        className="absolute right-2 bottom-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20"
+                                    >
+                                        {isSubmitting ? (
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <Send className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </>
                 ) : (

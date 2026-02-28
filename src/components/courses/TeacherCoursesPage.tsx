@@ -66,6 +66,7 @@ export const TeacherCoursesPage = () => {
                         id={course.id}
                         title={course.title}
                         description={course.description}
+                        thumbnail={course.thumbnail}
                         icon={BookOpen} // Default icon for now
                         stats={{
                             students: course.enrollment_count || 0,

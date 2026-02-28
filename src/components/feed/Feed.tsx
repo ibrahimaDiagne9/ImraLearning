@@ -15,6 +15,7 @@ export const Feed = () => {
                 const mappedPosts = data.map((d: any) => ({
                     id: d.id,
                     author: d.author.username,
+                    authorId: d.author.id?.toString(),
                     time: new Date(d.created_at).toLocaleDateString(),
                     title: d.title,
                     content: d.content,

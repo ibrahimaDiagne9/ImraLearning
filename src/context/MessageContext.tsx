@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNotifications } from './NotificationContext';
 import * as api from '../services/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface Message {
     id: string;
@@ -31,39 +32,42 @@ interface MessageContextType {
     markAsRead: (conversationId: string) => void;
     createConversation: (userId: string) => Promise<string | null>;
     refreshConversations: () => void;
+    totalUnreadCount: number;
 }
 
 const MessageContext = createContext<MessageContextType | undefined>(undefined);
 
 export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { addNotification } = useNotifications();
-    const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
-    const fetchConversations = async () => {
-        try {
+    // 1. Fetch Conversations
+    const { data: conversations = [], refetch: refreshConversations } = useQuery({
+        queryKey: ['conversations'],
+        queryFn: async () => {
             const data = await api.getConversations();
-            // Map API response to frontend interface
-            const mappedConversations: Conversation[] = data.map((conv: any) => ({
+            return data.map((conv: any) => ({
                 id: conv.id.toString(),
                 participantName: conv.participant_name,
                 participantAvatar: conv.participant_avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User', // Fallback
-                participantRole: 'student', // Default/Placeholder as API doesn't return this yet
+                participantRole: 'student',
                 lastMessage: conv.last_message,
                 lastMessageTime: conv.last_message_time,
                 unreadCount: conv.unread_count,
-                messages: [] // Initial empty messages
-            }));
-            setConversations(mappedConversations);
-        } catch (error) {
-            console.error("Failed to fetch conversations", error);
-        }
-    };
+                messages: []
+            })) as Conversation[];
+        },
+        refetchInterval: 30000,
+    });
 
-    const fetchMessages = async (conversationId: string) => {
-        try {
-            const data = await api.getMessages(conversationId);
-            const mappedMessages: Message[] = data.map((msg: any) => ({
+    // 2. Fetch Messages for active conversation
+    const { data: messages = [] } = useQuery({
+        queryKey: ['messages', activeConversationId],
+        queryFn: async () => {
+            if (!activeConversationId) return [];
+            const data = await api.getMessages(activeConversationId);
+            return data.map((msg: any) => ({
                 id: msg.id.toString(),
                 senderId: msg.sender.toString(),
                 senderName: msg.sender_name,
@@ -71,102 +75,114 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 text: msg.content,
                 timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 isMe: msg.is_me
-            }));
+            })) as Message[];
+        },
+        enabled: !!activeConversationId,
+        refetchInterval: 5000,
+    });
 
-            setConversations(prev => prev.map(conv => {
-                if (conv.id === conversationId) {
-                    return { ...conv, messages: mappedMessages };
-                }
-                return conv;
-            }));
-        } catch (error) {
-            console.error("Failed to fetch messages", error);
+    // 3. Mark as Read Mutation
+    const markAsReadMutation = useMutation({
+        mutationFn: async (conversationId: string) => {
+            await api.markMessagesRead(conversationId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
-    };
-
-    useEffect(() => {
-        fetchConversations();
-        // Poll for new messages every 30 seconds
-        const interval = setInterval(fetchConversations, 30000);
-        return () => clearInterval(interval);
-    }, []);
+    });
 
     useEffect(() => {
         if (activeConversationId) {
-            fetchMessages(activeConversationId);
-            // Mark as read when opening
-            markAsRead(activeConversationId);
+            markAsReadMutation.mutate(activeConversationId);
         }
-    }, [activeConversationId]);
+    }, [activeConversationId, messages.length]);
 
-    const sendMessage = async (text: string) => {
-        if (!activeConversationId || !text.trim()) return;
+    // 4. Send Message Mutation
+    const sendMessageMutation = useMutation({
+        mutationFn: async ({ conversationId, text }: { conversationId: string, text: string }) => {
+            return await api.sendMessage(conversationId, text);
+        },
+        onMutate: async ({ conversationId, text }) => {
+            await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
+            const previousMessages = queryClient.getQueryData<Message[]>(['messages', conversationId]);
 
-        try {
-            const apiMsg = await api.sendMessage(activeConversationId, text);
-            const newMessage: Message = {
-                id: apiMsg.id.toString(),
-                senderId: apiMsg.sender.toString(),
-                senderName: apiMsg.sender_name,
-                senderAvatar: apiMsg.sender_avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
-                text: apiMsg.content,
-                timestamp: new Date(apiMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            const optimisticMsg: Message = {
+                id: Date.now().toString(),
+                senderId: 'temp',
+                senderName: 'Me',
+                senderAvatar: '',
+                text: text,
+                timestamp: 'Just now',
                 isMe: true
             };
 
-            setConversations(prev => prev.map(conv => {
-                if (conv.id === activeConversationId) {
-                    return {
-                        ...conv,
-                        lastMessage: text.trim(),
-                        lastMessageTime: 'Just now',
-                        messages: [...conv.messages, newMessage]
-                    };
-                }
-                return conv;
-            }));
-        } catch (error) {
-            console.error("Failed to send message", error);
+            queryClient.setQueryData<Message[]>(['messages', conversationId], old => old ? [...old, optimisticMsg] : [optimisticMsg]);
+            return { previousMessages };
+        },
+        onError: (err, variables, context) => {
+            if (context?.previousMessages) {
+                queryClient.setQueryData(['messages', variables.conversationId], context.previousMessages);
+            }
+            console.error("Failed to send message", err);
             addNotification({
                 type: 'system',
                 title: 'Error',
                 description: 'Failed to send message. Please try again.',
             });
+        },
+        onSettled: (_data: any, _error: any, variables: any) => {
+            queryClient.invalidateQueries({ queryKey: ['messages', variables.conversationId] });
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
+    });
+
+    const sendMessage = (text: string) => {
+        if (!activeConversationId || !text.trim()) return;
+        sendMessageMutation.mutate({ conversationId: activeConversationId, text });
     };
 
-    const markAsRead = async (conversationId: string) => {
-        try {
-            await api.markMessagesRead(conversationId);
-            setConversations(prev => prev.map(conv =>
-                conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
-            ));
-        } catch (error) {
-            console.error("Failed to mark messages as read", error);
-        }
+    const markAsRead = (conversationId: string) => {
+        markAsReadMutation.mutate(conversationId);
     };
+
+    const createConversationMutation = useMutation({
+        mutationFn: async (userId: string) => {
+            const data = await api.createConversation(undefined, userId);
+            return data.id.toString();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+    });
 
     const createConversation = async (userId: string): Promise<string | null> => {
         try {
-            const data = await api.createConversation(undefined, userId);
-            const newConvId = data.id.toString();
-            await fetchConversations(); // Refresh list to include new conversation
-            return newConvId;
+            return await createConversationMutation.mutateAsync(userId);
         } catch (error) {
             console.error("Failed to create conversation", error);
             return null;
         }
-    }
+    };
+
+    const totalUnreadCount = conversations.reduce((acc, conv) => acc + (conv.unreadCount || 0), 0);
+
+    const conversationsWithActiveMessages = conversations.map(conv => {
+        if (conv.id === activeConversationId) {
+            return { ...conv, messages };
+        }
+        return conv;
+    });
 
     return (
         <MessageContext.Provider value={{
-            conversations,
+            conversations: conversationsWithActiveMessages,
             activeConversationId,
             setActiveConversationId,
             sendMessage,
             markAsRead,
             createConversation,
-            refreshConversations: fetchConversations
+            refreshConversations: () => refreshConversations(),
+            totalUnreadCount
         }}>
             {children}
         </MessageContext.Provider>

@@ -20,3 +20,19 @@ class IsInstructorOrReadOnly(permissions.BasePermission):
             return obj.course.instructor == request.user
         
         return False
+
+class IsInstructor(permissions.BasePermission):
+    """
+    Custom permission to strictly allow ONLY instructors of a course to access the view.
+    No read-only fallback.
+    """
+    def has_object_permission(self, request, view, obj):
+        if hasattr(obj, 'instructor'):
+            return obj.instructor == request.user
+        if hasattr(obj, 'section'):
+            return obj.section.course.instructor == request.user
+        if hasattr(obj, 'course'):
+            return obj.course.instructor == request.user
+        if hasattr(obj, 'lesson'):
+            return obj.lesson.section.course.instructor == request.user
+        return False

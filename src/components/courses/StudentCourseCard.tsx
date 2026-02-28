@@ -16,6 +16,7 @@ export interface StudentCourseCardProps {
     level: 'Beginner' | 'Intermediate' | 'Advanced';
     price: string;
     isEnrolled: boolean;
+    thumbnail?: string;
     sections?: any[];
     onEnroll?: (id: number) => void;
     onContinue?: (id: number) => void;
@@ -32,12 +33,21 @@ export const StudentCourseCard = ({
     level,
     price,
     isEnrolled,
+    thumbnail,
     sections = [],
     onEnroll,
     onContinue,
     isFeatured = false
 }: StudentCourseCardProps) => {
     const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
+
+    const getImageUrl = (url?: string) => {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('blob:')) return url;
+        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+        return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
 
     const getLessonIcon = (type: string) => {
         switch (type) {
@@ -55,12 +65,26 @@ export const StudentCourseCard = ({
             <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.02] to-transparent pointer-events-none" />
 
             {/* Card Header/Icon Area */}
-            <div className={`relative p-8 flex flex-col items-center justify-center border-b border-white/5 overflow-hidden ${isFeatured ? 'bg-blue-600/5' : 'bg-white/[0.02]'}`}>
-                {/* Decorative Circles */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -ml-12 -mb-12" />
+            <div className={`relative h-48 flex flex-col items-center justify-center border-b border-white/5 overflow-hidden ${isFeatured ? 'bg-blue-600/5' : 'bg-white/[0.02]'}`}>
+                {thumbnail ? (
+                    <img
+                        src={getImageUrl(thumbnail)}
+                        alt={title}
+                        className="w-full h-full object-cover absolute inset-0 group-hover:scale-110 transition-transform duration-700"
+                    />
+                ) : (
+                    <>
+                        {/* Decorative Circles */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16" />
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -ml-12 -mb-12" />
 
-                <div className="absolute top-5 inset-x-6 flex justify-between items-center">
+                        <div className="relative z-10 w-20 h-20 rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                            <Icon className="w-10 h-10 text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                        </div>
+                    </>
+                )}
+
+                <div className="absolute top-5 inset-x-6 flex justify-between items-center z-20">
                     {isFeatured && (
                         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-widest">
                             <Trophy className="w-3 h-3" />
@@ -76,10 +100,7 @@ export const StudentCourseCard = ({
                         {level}
                     </div>
                 </div>
-
-                <div className="relative z-10 w-20 h-20 rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                    <Icon className="w-10 h-10 text-blue-400 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
-                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1A] via-transparent to-transparent opacity-60 pointer-events-none" />
             </div>
 
             {/* Content Body */}

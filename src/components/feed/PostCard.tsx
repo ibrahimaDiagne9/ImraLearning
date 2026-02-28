@@ -1,8 +1,10 @@
 
-import { MessageSquare, Heart, Share2, MoreHorizontal } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { MessageSquare, Heart, Share2, MoreHorizontal, Mail } from 'lucide-react';
 
 interface PostProps {
     author: string;
+    authorId?: string;
     time: string;
     title: string;
     content: string;
@@ -11,7 +13,23 @@ interface PostProps {
     tags: string[];
 }
 
-export const PostCard = ({ author, time, title, content, likes, comments, tags }: PostProps) => {
+import { useNavigate } from 'react-router-dom';
+import { useMessages } from '../../context/MessageContext';
+
+export const PostCard = ({ author, authorId, time, title, content, likes, comments, tags }: PostProps) => {
+    const navigate = useNavigate();
+    const { createConversation, setActiveConversationId } = useMessages();
+
+    const handleMessageClick = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (authorId) {
+            const convId = await createConversation(authorId);
+            if (convId) {
+                setActiveConversationId(convId);
+                navigate('/messages');
+            }
+        }
+    };
     return (
         <div className="bg-surface rounded-xl p-6 border border-gray-700 hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-primary/10">
             <div className="flex items-start justify-between mb-4">
@@ -20,8 +38,13 @@ export const PostCard = ({ author, time, title, content, likes, comments, tags }
                         {author[0]}
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white hover:text-primary cursor-pointer transition-colors">{author}</h3>
-                        <span className="text-xs text-gray-400">{time}</span>
+                        <Link
+                            to={authorId ? `/profile/${authorId}` : '/profile'}
+                            className="font-semibold text-white hover:text-primary cursor-pointer transition-colors"
+                        >
+                            {author}
+                        </Link>
+                        <span className="text-xs text-gray-400 block">{time}</span>
                     </div>
                 </div>
                 <button className="text-gray-400 hover:text-white transition-colors">
@@ -56,10 +79,19 @@ export const PostCard = ({ author, time, title, content, likes, comments, tags }
                     </button>
                 </div>
 
-                <button className="px-6 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-full transition-all transform hover:scale-105 shadow-lg shadow-primary/25 flex items-center gap-2">
-                    Join Discussion
-                    <MessageSquare className="w-4 h-4" />
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={handleMessageClick}
+                        className="px-4 py-2 border border-gray-700 hover:border-primary text-gray-300 hover:text-white rounded-full transition-all text-sm font-bold flex items-center gap-2"
+                    >
+                        Message
+                        <Mail className="w-4 h-4" />
+                    </button>
+                    <button className="px-6 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-full transition-all transform hover:scale-105 shadow-lg shadow-primary/25 flex items-center gap-2">
+                        Join Discussion
+                        <MessageSquare className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
         </div>
     );

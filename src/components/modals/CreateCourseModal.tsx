@@ -23,10 +23,24 @@ export const CreateCourseModal = ({ isOpen, onClose }: CreateCourseModalProps) =
         price: '0.00',
         duration_hours: '0'
     });
+    const [thumbnail, setThumbnail] = useState<File | null>(null);
+    const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setThumbnail(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setThumbnailPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleCreate = async () => {
@@ -37,10 +51,21 @@ export const CreateCourseModal = ({ isOpen, onClose }: CreateCourseModalProps) =
 
         setIsLoading(true);
         try {
-            const response = await api.post('/courses/', {
-                ...formData,
-                price: parseFloat(formData.price),
-                duration_hours: parseInt(formData.duration_hours)
+            const data = new FormData();
+            data.append('title', formData.title);
+            data.append('description', formData.description);
+            data.append('category', formData.category);
+            data.append('level', formData.level);
+            data.append('price', formData.price);
+            data.append('duration_hours', formData.duration_hours);
+            if (thumbnail) {
+                data.append('thumbnail', thumbnail);
+            }
+
+            const response = await api.post('/courses/', data, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             });
             onClose();
             addNotification({ type: 'system', title: 'Success', description: 'Course created successfully!' });
@@ -156,10 +181,33 @@ export const CreateCourseModal = ({ isOpen, onClose }: CreateCourseModalProps) =
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                         Course Thumbnail
                     </label>
-                    <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-blue-500 transition-colors cursor-pointer bg-[#1F2937]/50">
-                        <Upload className="w-10 h-10 text-gray-500 mb-3" />
-                        <p className="text-gray-300 font-medium">Click to upload or drag and drop</p>
-                        <p className="text-gray-500 text-sm mt-1">PNG, JPG up to 5MB</p>
+                    <input
+                        type="file"
+                        id="course-thumbnail"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                    />
+                    <div
+                        onClick={() => document.getElementById('course-thumbnail')?.click()}
+                        className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-colors cursor-pointer bg-[#1F2937]/50 overflow-hidden relative min-h-[160px] ${thumbnailPreview ? 'border-blue-500' : 'border-gray-700 hover:border-blue-500'}`}
+                    >
+                        {thumbnailPreview ? (
+                            <div className="absolute inset-0">
+                                <img src={thumbnailPreview} alt="Preview" className="w-full h-full object-cover opacity-50" />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                                    <Upload className="w-8 h-8 text-white mb-2" />
+                                    <p className="text-white font-bold text-sm">Change Thumbnail</p>
+                                    <p className="text-gray-200 text-xs mt-1">{thumbnail?.name}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <Upload className="w-10 h-10 text-gray-500 mb-3" />
+                                <p className="text-gray-300 font-medium">Click to upload or drag and drop</p>
+                                <p className="text-gray-500 text-sm mt-1">PNG, JPG up to 5MB</p>
+                            </>
+                        )}
                     </div>
                 </div>
 

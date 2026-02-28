@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 from django.db.models import Count, Exists, OuterRef, Value, BooleanField, Prefetch
 from ..models import (
     Discussion, DiscussionReply, Review, 
@@ -8,8 +9,34 @@ from ..models import (
 )
 from ..serializers import (
     DiscussionSerializer, DiscussionReplySerializer, 
-    ReviewSerializer, ConversationSerializer, MessageSerializer, UserSerializer
+    ReviewSerializer, ConversationSerializer, MessageSerializer, 
+    UserSerializer, PublicProfileSerializer
 )
+
+class UserSearchListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '')
+        if len(query) < 2:
+            return User.objects.none()
+        return User.objects.filter(
+            username__icontains=query
+        ).exclude(id=self.request.user.id)[:10]
+
+class PublicProfileView(APIView):
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get(self, request, pk):
+        try:
+            user = get_object_or_404(User, pk=pk)
+            serializer = PublicProfileSerializer(user, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error in PublicProfileView: {e}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DiscussionListView(generics.ListCreateAPIView):
     serializer_class = DiscussionSerializer

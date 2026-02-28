@@ -39,10 +39,14 @@ export const InstructorStudio = () => {
     // Course Metadata State
     const [courseTitle, setCourseTitle] = useState('New UI Mastery Course');
     const [description, setDescription] = useState('');
+    const [shortDescription, setShortDescription] = useState('');
+    const [requirements, setRequirements] = useState('');
+    const [outcomes, setOutcomes] = useState('');
     const [category, setCategory] = useState('Design');
     const [level, setLevel] = useState('beginner');
     const [price, setPrice] = useState('0.00');
     const [durationHours, setDurationHours] = useState('0');
+    const [thumbnail, setThumbnail] = useState<string | File>('');
 
     // UI & Local State
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -53,59 +57,158 @@ export const InstructorStudio = () => {
         if (courseData) {
             setCourseTitle(courseData.title);
             setDescription(courseData.description);
+            setShortDescription(courseData.short_description || '');
+            setRequirements(courseData.requirements || '');
+            setOutcomes(courseData.outcomes || '');
             setCategory(courseData.category);
             setLevel(courseData.level);
             setPrice(courseData.price || '0.00');
             setDurationHours((courseData.duration_hours ?? 0).toString());
+            setThumbnail(courseData.thumbnail || '');
             setSections((courseData.sections ?? []).map((s: any) => ({ ...s, isOpen: true })));
 
             if (courseData.sections.length > 0 && courseData.sections[0].lessons.length > 0 && !activeLessonId) {
                 setActiveLessonId(courseData.sections[0].lessons[0].id);
             }
         } else if (courseId === 'new') {
-            // Initial blank state for new course
-            setSections([
-                {
-                    id: 'temp-s1',
-                    title: 'Welcome & Fundamentals',
-                    order: 0,
-                    isOpen: true,
-                    lessons: [{ id: 'temp-l1', title: 'Course Introduction', lesson_type: 'video', order: 0 }]
-                }
-            ]);
-            setActiveLessonId('temp-l1');
+            // ... lines 68-81
         }
     }, [courseData, courseId]);
 
     const handleSave = async (publish = false) => {
+        let currentThumbnail = thumbnail as string;
+
+        if (thumbnail && typeof thumbnail !== 'string' && courseId !== 'new') {
+            try {
+                const formData = new FormData();
+                formData.append('thumbnail', thumbnail);
+                const res = await api.post(`/courses/${courseId}/thumbnail/`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                currentThumbnail = res.data.thumbnail_url;
+                setThumbnail(currentThumbnail);
+            } catch (e) {
+                console.error('Thumbnail upload failed:', e);
+                showToast('Thumbnail upload failed.', 'error');
+                return;
+            }
+        }
+
+        const parsedPrice = parseFloat(price);
+        const parsedDuration = parseFloat(durationHours);
+
         const payload = {
             title: courseTitle,
             description: description || 'No description provided.',
-            category, level, price,
-            duration_hours: parseFloat(durationHours),
+            short_description: shortDescription,
+            requirements,
+            outcomes,
+            category,
+            level,
+            price: isNaN(parsedPrice) ? '0.00' : parsedPrice.toFixed(2),
+            duration_hours: isNaN(parsedDuration) ? 0 : Math.round(parsedDuration),
             is_published: publish,
             sections: sections.map((s, sIdx) => ({
-                ...s,
                 id: typeof s.id === 'number' ? s.id : undefined,
+                title: s.title,
                 order: sIdx,
                 lessons: s.lessons.map((l, lIdx) => ({
-                    ...l,
                     id: typeof l.id === 'number' ? l.id : undefined,
-                    order: lIdx
+                    title: l.title,
+                    lesson_type: l.lesson_type,
+                    order: lIdx,
+                    video_url: l.video_url,
+                    content: l.content,
+                    duration: l.duration,
+                    summary: l.summary,
+                    is_preview: l.is_preview,
+                    quiz: l.quiz ? {
+                        id: typeof l.quiz.id === 'number' ? l.quiz.id : undefined,
+                        title: l.quiz.title || l.title,
+                        xp_reward: l.quiz.xp_reward,
+                        questions: (l.quiz.questions || []).map(q => ({
+                            id: typeof q.id === 'number' ? q.id : undefined,
+                            text: q.text,
+                            explanation: q.explanation,
+                            choices: (q.choices || []).map(c => ({
+                                id: typeof c.id === 'number' ? c.id : undefined,
+                                text: c.text,
+                                is_correct: c.is_correct
+                            }))
+                        }))
+                    } : undefined,
+                    assignment: l.assignment ? {
+                        id: typeof l.assignment.id === 'number' ? l.assignment.id : undefined,
+                        title: l.assignment.title || l.title,
+                        instructions: l.assignment.instructions,
+                        total_points: l.assignment.total_points,
+                        due_date: l.assignment.due_date
+                    } : undefined
                 }))
             }))
         };
 
         saveMutation.mutate(
-            { courseId, payload },
+            { courseId, payload: payload as any },
             {
                 onSuccess: (data) => {
-                    showToast(courseId === 'new' ? 'Course created.' : 'Course updated.', 'success');
-                    if (courseId === 'new') navigate(`/studio/${data.id}`);
-                    setSections(data.sections.map((s: any) => ({ ...s, isOpen: true })));
+                    const isNew = courseId === 'new';
+
+                    // Handle delayed thumbnail upload for new courses
+                    if (isNew && thumbnail && typeof thumbnail !== 'string') {
+                        const formData = new FormData();
+                        formData.append('thumbnail', thumbnail);
+                        api.post(`/courses/${data.id}/thumbnail/`, formData, {
+                        }).then(res => {
+                            setThumbnail(res.data.thumbnail_url);
+                        }).catch(err => {
+                            console.error('New course thumbnail upload failed:', err);
+                        });
+                    }
+
+                    showToast(isNew ? 'Course created successfully!' : 'Course updated successfully.', 'success');
+                    if (isNew) {
+                        navigate(`/studio/${data.id}`, { replace: true });
+                    }
+                    if (data.sections) {
+                        setSections(data.sections.map((s: any) => ({ ...s, isOpen: true })));
+                    }
                 },
-                onError: () => {
-                    showToast('Failed to save.', 'error');
+                onError: (error: any) => {
+                    const errorData = error.response?.data;
+                    let message = 'Failed to save.';
+
+                    if (errorData) {
+                        if (typeof errorData === 'object') {
+                            // Backend structured error: { success: false, message: "...", errors: { ... } }
+                            if (errorData.message) {
+                                message = errorData.message;
+                                // If there are field errors, append the first one
+                                if (errorData.errors && typeof errorData.errors === 'object') {
+                                    const firstErrorField = Object.keys(errorData.errors)[0];
+                                    const fieldError = errorData.errors[firstErrorField];
+                                    const errorString = Array.isArray(fieldError) ? fieldError[0] : fieldError;
+                                    if (errorString) {
+                                        message += ` (${firstErrorField}: ${errorString})`;
+                                    }
+                                }
+                            } else {
+                                // Fallback for raw DRF errors: { field: ["error"] }
+                                const firstKey = Object.keys(errorData)[0];
+                                if (firstKey) {
+                                    const val = errorData[firstKey];
+                                    message = `${firstKey}: ${Array.isArray(val) ? val[0] : val}`;
+                                }
+                            }
+                        } else if (typeof errorData === 'string') {
+                            message = errorData;
+                        }
+                    } else if (error.message) {
+                        message = error.message;
+                    }
+
+                    console.error('Save failed:', errorData || error.message);
+                    showToast(message, 'error');
                 }
             }
         );
@@ -121,7 +224,6 @@ export const InstructorStudio = () => {
         try {
             setUploadProgress(prev => ({ ...prev, [activeLessonId]: 0 }));
             const res = await api.post(`/lessons/${activeLessonId}/video/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
                 onUploadProgress: (p) => setUploadProgress(prev => ({ ...prev, [activeLessonId]: Math.round((p.loaded * 100) / (p.total || 1)) }))
             });
             updateLesson(activeLessonId, { video_url: res.data.video_url });
@@ -148,9 +250,7 @@ export const InstructorStudio = () => {
         formData.append('file_type', file.name.split('.').pop() || '');
         formData.append('file_size', `${(file.size / (1024 * 1024)).toFixed(1)} MB`);
         try {
-            const res = await api.post(`/lessons/${activeLessonId}/resources/`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await api.post(`/lessons/${activeLessonId}/resources/`, formData);
             const currentLesson = sections.flatMap(s => s.lessons).find(l => l.id === activeLessonId);
             updateLesson(activeLessonId, { resources: [...(currentLesson?.resources || []), res.data] });
             showToast('Resource attached.', 'success');
@@ -228,13 +328,14 @@ export const InstructorStudio = () => {
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
                 isSaving={saveMutation.isPending}
-                data={{ description, category, level, price, durationHours }}
+                data={{ description, category, level, price, durationHours, thumbnail }}
                 onUpdate={(field, value) => {
                     if (field === 'description') setDescription(value);
                     if (field === 'category') setCategory(value);
                     if (field === 'level') setLevel(value);
                     if (field === 'price') setPrice(value);
                     if (field === 'durationHours') setDurationHours(value);
+                    if (field === 'thumbnailFile') setThumbnail(value);
                 }}
                 onSave={() => { handleSave(false); setIsSettingsOpen(false); }}
             />

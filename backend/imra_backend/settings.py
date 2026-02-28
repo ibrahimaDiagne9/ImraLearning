@@ -33,6 +33,10 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
+
 
 # Application definition
 
@@ -52,6 +56,7 @@ INSTALLED_APPS = [
     
     # Internal apps
     'core',
+    'debug_toolbar',
 ]
 
 MIDDLEWARE = [
@@ -59,6 +64,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -92,7 +98,7 @@ WSGI_APPLICATION = 'imra_backend.wsgi.application'
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600
+        conn_max_age=0 # Better for Neon pooler
     )
 }
 
@@ -132,6 +138,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Email Configuration (Console for local development)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@imralearning.com'
+
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -177,13 +188,26 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
+raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5174')
 CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_cors.split(',') if origin.strip()]
 CORS_ALLOW_ALL_ORIGINS = DEBUG # Only allow all in debug mode
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'range', # Important for video streaming
+]
+CORS_EXPOSE_HEADERS = ['Content-Range', 'Accept-Ranges']
 
 # CSRF Settings
-raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173')
+raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5174')
 CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_csrf.split(',') if origin.strip()]
 
 # PayDunya Settings
@@ -199,4 +223,8 @@ PAYDUNYA_STORE_POSTAL_ADDRESS = "Dakar, Senegal"
 PAYDUNYA_STORE_LOGO_URL = "https://imralearning.com/logo.png"
 
 # Frontend Settings
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5174')
+
+# Upload limits (100MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600

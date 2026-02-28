@@ -86,14 +86,33 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (IsInstructorOrReadOnly,)
     lookup_field = 'pk'
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = self.request.user
+        course_id = self.kwargs.get('pk')
+        
+        # Determine if we should serve high-density learning data
+        is_instructor = False
+        is_enrolled = False
+        
+        if user.is_authenticated:
+            # Check ownership/enrollment - Quick lookups
+            is_instructor = Course.objects.filter(pk=course_id, instructor=user).exists()
+            if not is_instructor:
+                is_enrolled = Enrollment.objects.filter(user=user, course_id=course_id).exists()
+        
+        if is_instructor or is_enrolled:
+            context['mode'] = 'learning'
+        return context
+
     def get_queryset(self):
         user = self.request.user
         
         # Optimize Lesson queryset for prefetching
-        lessons_qs = Lesson.objects.all().select_related('quiz', 'assignment')
+        # We prefetch all related data for the player in one shot
+        lessons_qs = Lesson.objects.all().select_related('quiz', 'assignment').prefetch_related('resources')
         
         if user.is_authenticated:
-            # Annotate completion and submissions per user
             progress = LessonProgress.objects.filter(user=user, lesson=OuterRef('pk'), is_completed=True)
             submissions = AssignmentSubmission.objects.filter(student=user, assignment__lesson=OuterRef('pk'))
             lessons_qs = lessons_qs.annotate(
@@ -106,28 +125,26 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
                 annotated_submission_id=Value(None, output_field=IntegerField(null=True))
             )
 
-        queryset = Course.objects.all().select_related('instructor').prefetch_related(
-            Prefetch('sections__lessons', queryset=lessons_qs),
-            'sections__lessons__resources',
-            'sections__lessons__quiz__questions__choices',
-            'enrollments',
-            'reviews__user'
-        ).annotate(
+        # Optimize Course queryset with same logic as list view
+        enrollments = Enrollment.objects.filter(user=user, course=OuterRef('pk')) if user.is_authenticated else Enrollment.objects.none()
+        reviews = Review.objects.filter(course=OuterRef('pk'))
+        
+        queryset = Course.objects.all().select_related('instructor').annotate(
+            is_enrolled=Exists(enrollments),
+            annotated_is_enrolled=Exists(enrollments), # Sync with serializer
             enrollment_count=Count('enrollments', distinct=True),
             average_rating=Avg('reviews__rating')
+        ).prefetch_related(
+            Prefetch('sections__lessons', queryset=lessons_qs),
+            'sections__lessons__quiz__questions__choices',
+            'sections__lessons__resources'
         )
-
-        if user.is_authenticated:
-            enrollments = Enrollment.objects.filter(user=user, course=OuterRef('pk'))
-            queryset = queryset.annotate(annotated_is_enrolled=Exists(enrollments))
-        else:
-            queryset = queryset.annotate(annotated_is_enrolled=Value(False, output_field=BooleanField()))
-            
         return queryset
 
 class LessonCreateView(generics.CreateAPIView):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
+    # We enforce course ownership by overriding create since object isn't fetched yet
     permission_classes = (permissions.IsAuthenticated,)
 
     def perform_create(self, serializer):
@@ -142,49 +159,71 @@ class LessonCreateView(generics.CreateAPIView):
         except Section.DoesNotExist:
              return Response({"error": "Section not found"}, status=404)
 
+from ..permissions import IsInstructorOrReadOnly, IsInstructor
+
 class LessonVideoUploadView(APIView):
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated, IsInstructor)
     
     def post(self, request, pk):
         try:
             lesson = Lesson.objects.get(pk=pk)
-            if lesson.section.course.instructor != request.user:
-                return Response({"error": "Permission denied"}, status=403)
+            # Permission check is now handled centrally by IsInstructor
+            self.check_object_permissions(request, lesson)
             
             video_file = request.FILES.get('video_file')
             if not video_file:
                 return Response({"error": "No file uploaded"}, status=400)
             
             lesson.video_file = video_file
+            lesson.video_url = "" # Clear external URL to prioritize uploaded file
             lesson.lesson_type = 'video'
             lesson.save()
-            return Response({"video_url": lesson.video_file.url, "message": "Video uploaded successfully"})
+            
+            video_url = request.build_absolute_uri(lesson.video_file.url)
+            return Response({"video_url": video_url, "message": "Video uploaded successfully"})
         except Lesson.DoesNotExist:
             return Response({"error": "Lesson not found"}, status=404)
 
+class CourseThumbnailUploadView(APIView):
+    permission_classes = (permissions.IsAuthenticated, IsInstructor)
+    
+    def post(self, request, pk):
+        try:
+            course = Course.objects.get(pk=pk)
+            # Permission check
+            if course.instructor != request.user:
+                return Response({"error": "Permission denied"}, status=403)
+            
+            thumbnail = request.FILES.get('thumbnail')
+            if not thumbnail:
+                return Response({"error": "No file uploaded"}, status=400)
+            
+            course.thumbnail = thumbnail
+            course.save()
+            
+            thumbnail_url = request.build_absolute_uri(course.thumbnail.url)
+            return Response({"thumbnail_url": thumbnail_url, "message": "Thumbnail uploaded successfully"})
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found"}, status=404)
+
 class ResourceCreateView(generics.CreateAPIView):
     serializer_class = ResourceSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated, IsInstructor)
 
     def perform_create(self, serializer):
         lesson_id = self.kwargs.get('lesson_pk')
         try:
             lesson = Lesson.objects.get(pk=lesson_id)
-            if lesson.section.course.instructor != self.request.user:
-                raise permissions.exceptions.PermissionDenied("You are not the instructor of this course.")
+            # Permission check handled by DRF
+            self.check_object_permissions(self.request, lesson)
             serializer.save(lesson=lesson)
         except Lesson.DoesNotExist:
             return Response({"error": "Lesson not found"}, status=404)
 
 class ResourceDeleteView(generics.DestroyAPIView):
     queryset = Resource.objects.all()
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get_object(self):
-        obj = super().get_object()
-        if obj.lesson.section.course.instructor != self.request.user:
-            raise permissions.exceptions.PermissionDenied("You are not the instructor of this course.")
-        return obj
+    # Apply IsInstructor so standard DRF `get_object` performs the validation natively.
+    permission_classes = (permissions.IsAuthenticated, IsInstructor)
 
 class InvitationView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -201,10 +240,19 @@ class InvitationView(APIView):
 
         try:
             course = Course.objects.get(pk=course_id, instructor=request.user)
-            student, created = User.objects.get_or_create(
-                email=email,
-                defaults={'username': email.split('@')[0], 'role': 'student'}
-            )
+            student = User.objects.filter(email=email).first()
+            created = False
+            
+            if not student:
+                from ..services.auth_service import AuthService
+                student = User.objects.create_user(
+                    username=email.split('@')[0],
+                    email=email,
+                    password=User.objects.make_random_password(),
+                    role='student'
+                )
+                created = True
+                AuthService.send_verification_email(student)
             
             Enrollment.objects.get_or_create(user=student, course=course)
             

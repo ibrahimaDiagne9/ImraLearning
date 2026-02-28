@@ -7,6 +7,7 @@ export interface CourseCardProps {
     title: string;
     description: string;
     icon: LucideIcon;
+    thumbnail?: string; // Add thumbnail prop
     stats: {
         students: number;
         modules: number;
@@ -17,24 +18,40 @@ export interface CourseCardProps {
     iconColor?: string; // Optional custom color for the icon container
 }
 
-export const CourseCard = ({ id, title, description, icon: Icon, stats, progress, status }: CourseCardProps) => {
+export const CourseCard = ({ id, title, description, icon: Icon, thumbnail, stats, progress, status }: CourseCardProps) => {
     const navigate = useNavigate();
+
+    const getImageUrl = (url?: string) => {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('blob:')) return url;
+        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+        return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    };
+
     return (
         <div className="bg-surface border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors flex flex-col relative">
             {status === 'draft' && (
-                <div className="absolute top-3 left-3 bg-gray-700 text-gray-300 text-xs font-bold px-2 py-1 rounded">
+                <div className="absolute top-3 left-3 bg-gray-700 text-gray-300 text-xs font-bold px-2 py-1 rounded z-10">
                     Draft
                 </div>
             )}
 
-            <div className="bg-[#111827] p-8 flex justify-center items-center border-b border-gray-800">
-                {/* Placeholder for course icon/image */}
-                <div className={`w-16 h-16 rounded-xl flex items-center justify-center shadow-lg ${status === 'draft' ? 'bg-gray-800' : 'bg-surface'}`}>
-                    <Icon className="w-8 h-8 text-blue-400" />
-                </div>
+            <div className="bg-[#111827] h-48 flex justify-center items-center border-b border-gray-800 relative overflow-hidden">
+                {thumbnail ? (
+                    <img
+                        src={getImageUrl(thumbnail)}
+                        alt={title}
+                        className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-500"
+                    />
+                ) : (
+                    <div className={`w-16 h-16 rounded-xl flex items-center justify-center shadow-lg relative z-10 ${status === 'draft' ? 'bg-gray-800' : 'bg-surface'}`}>
+                        <Icon className="w-8 h-8 text-blue-400" />
+                    </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent opacity-60" />
             </div>
 
-            <div className="p-6 flex-1 flex flex-col">
+            <div className="p-6 flex-1 flex flex-col relative z-20 bg-surface">
                 <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
                 <p className="text-gray-400 text-sm mb-6 flex-1 line-clamp-2">
                     {description}

@@ -35,12 +35,15 @@ export interface Lesson {
     video_url?: string;
     video_file?: string;
     content?: string;
+    summary?: string;
     duration?: string;
     order: number;
+    is_preview?: boolean;
     resources?: Resource[];
     quiz?: Quiz;
     assignment?: {
         id?: number;
+        title?: string;
         instructions: string;
         total_points: number;
         due_date?: string;
@@ -59,6 +62,9 @@ export interface CourseData {
     id?: number | string;
     title: string;
     description: string;
+    short_description?: string;
+    requirements?: string;
+    outcomes?: string;
     category: string;
     level: string;
     price: string;

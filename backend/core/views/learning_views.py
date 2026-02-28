@@ -9,6 +9,7 @@ from ..serializers import (
     EnrollmentSerializer, QuizAttemptSerializer, 
     CertificateSerializer, AssignmentSerializer, AssignmentSubmissionSerializer
 )
+from ..services.gamification_service import GamificationService
 
 class EnrollView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -37,13 +38,13 @@ class ToggleLessonCompletionView(APIView):
             progress.is_completed = not progress.is_completed
             progress.save()
 
+            gamification_result = {}
             if progress.is_completed:
-                request.user.xp_points += 50
-                request.user.save()
+                gamification_result = GamificationService.add_xp(request.user, 50, f"Completed lesson: {lesson.title}")
 
             return Response({
                 'is_completed': progress.is_completed,
-                'xp': request.user.xp_points
+                'gamification': gamification_result
             })
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=404)
@@ -55,6 +56,7 @@ class SubmitQuizView(APIView):
         try:
             quiz = Quiz.objects.get(pk=pk)
             answers = request.data.get('answers', {})
+            gamification_result = {}
             
             correct_count = 0
             questions = quiz.questions.all()
@@ -94,15 +96,14 @@ class SubmitQuizView(APIView):
             if total_questions > 0 and not progress.is_completed and (correct_count / total_questions) >= 0.6:
                 progress.is_completed = True
                 progress.save()
-                xp_rewarded = quiz.xp_reward
-                request.user.xp_points += xp_rewarded
-                request.user.save()
+                xp_rewarded = quiz.xp_reward if hasattr(quiz, 'xp_reward') else 100
+                gamification_result = GamificationService.add_xp(request.user, xp_rewarded, f"Passed quiz: {quiz.title}")
                 newly_completed = True
 
             return Response({
                 "score": correct_count,
                 "total_questions": total_questions,
-                "xp_rewarded": xp_rewarded,
+                "gamification": gamification_result if newly_completed else None,
                 "newly_completed": newly_completed,
                 "message": "Quiz submitted successfully"
             })
@@ -115,6 +116,7 @@ class AddXPView(APIView):
 
     def post(self, request):
         xp = request.data.get('xp', 0)
+        reason = request.data.get('reason', 'Manual XP Bonus')
         try:
             xp_amount = int(xp)
         except (ValueError, TypeError):
@@ -127,10 +129,8 @@ class AddXPView(APIView):
         if xp_amount < 0:
             return Response({'error': 'XP cannot be negative'}, status=400)
 
-        user = request.user
-        user.xp_points += xp_amount
-        user.save()
-        return Response({'xp_points': user.xp_points}, status=200)
+        result = GamificationService.add_xp(request.user, xp_amount, reason)
+        return Response(result, status=200)
 
 class CertificateListView(generics.ListAPIView):
     serializer_class = CertificateSerializer

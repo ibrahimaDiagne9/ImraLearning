@@ -5,10 +5,15 @@ urlpatterns = [
     # Auth & Profile
     path('auth/register/', auth_views.RegisterView.as_view(), name='register'),
     path('auth/profile/', auth_views.UserDetailView.as_view(), name='profile'),
+    path('auth/password-reset/', auth_views.RequestPasswordResetView.as_view(), name='password-reset'),
+    path('auth/password-reset-confirm/', auth_views.ResetPasswordConfirmView.as_view(), name='password-reset-confirm'),
+    path('auth/verify-email/', auth_views.RequestEmailVerificationView.as_view(), name='verify-email-request'),
+    path('auth/verify-email-confirm/', auth_views.VerifyEmailConfirmView.as_view(), name='verify-email-confirm'),
     
     # Courses
     path('courses/', course_views.CourseListView.as_view(), name='course-list'),
     path('courses/<int:pk>/', course_views.CourseDetailView.as_view(), name='course-detail'),
+    path('courses/<int:pk>/thumbnail/', course_views.CourseThumbnailUploadView.as_view(), name='course-thumbnail-upload'),
     path('courses/invite/', course_views.InvitationView.as_view(), name='invite-student'),
     path('lessons/', course_views.LessonCreateView.as_view(), name='lesson-create'),
     path('lessons/<int:pk>/video/', course_views.LessonVideoUploadView.as_view(), name='lesson-video-upload'),
@@ -38,6 +43,10 @@ urlpatterns = [
     path('conversations/', community_views.ConversationListView.as_view(), name='conversation-list'),
     path('conversations/<int:pk>/messages/', community_views.MessageListView.as_view(), name='message-list'),
     path('conversations/<int:pk>/read/', community_views.MarkMessagesReadView.as_view(), name='mark-messages-read'),
+    path('users/search/', community_views.UserSearchListView.as_view(), name='user-search'),
+    path('users/<int:pk>/profile/', community_views.PublicProfileView.as_view(), name='public-profile'),
+
+
 
     # Business & Sessions
     path('membership/upgrade/', business_views.UpgradeMembershipView.as_view(), name='upgrade-membership'),

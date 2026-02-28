@@ -2,11 +2,65 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
+import uuid
+
+# --- Infrastructure: Soft Delete Mechanism ---
+
+class SoftDeleteQuerySet(models.QuerySet):
+    def delete(self):
+        return super().update(deleted_at=timezone.now())
+
+    def hard_delete(self):
+        return super().delete()
+
+    def alive(self):
+        return self.filter(deleted_at__isnull=True)
+
+    def dead(self):
+        return self.exclude(deleted_at__isnull=True)
+
+from django.contrib.auth.models import UserManager
+
+class SoftDeleteManager(UserManager):
+    def get_queryset(self):
+        return SoftDeleteQuerySet(self.model, using=self._db).alive()
+
+    def all_with_deleted(self):
+        return SoftDeleteQuerySet(self.model, using=self._db)
+
+    def deleted(self):
+        return SoftDeleteQuerySet(self.model, using=self._db).dead()
+
+# --- New Enums from Prisma Schema ---
+class NotificationType(models.TextChoices):
+    COURSE = 'COURSE', 'Course'
+    SYSTEM = 'SYSTEM', 'System'
+    REPLY = 'REPLY', 'Reply'
+    MESSAGE = 'MESSAGE', 'Message'
+    PROMOTION = 'PROMOTION', 'Promotion'
+
+class OrderStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending'
+    PAID = 'PAID', 'Paid'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+    REFUNDED = 'REFUNDED', 'Refunded'
+
+class PaymentProvider(models.TextChoices):
+    PAYDUNYA = 'PAYDUNYA', 'PayDunya'
+    STRIPE = 'STRIPE', 'Stripe'
+
+class PaymentStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending'
+    COMPLETED = 'COMPLETED', 'Completed'
+    FAILED = 'FAILED', 'Failed'
+    REFUNDED = 'REFUNDED', 'Refunded'
 
 class User(AbstractUser):
     ROLE_CHOICES = (
         ('student', 'Student'),
         ('teacher', 'Teacher'),
+        ('admin', 'Admin'),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
     xp_points = models.IntegerField(default=0)
@@ -15,6 +69,25 @@ class User(AbstractUser):
     location = models.CharField(max_length=100, blank=True)
     timezone = models.CharField(max_length=50, default='UTC')
     is_pro = models.BooleanField(default=False)
+
+    # Custom Additions
+    email_verified = models.BooleanField(default=False)
+    email_verification_token = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    password_reset_token = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    refresh_token = models.CharField(max_length=500, null=True, blank=True)
+    two_factor_secret = models.CharField(max_length=255, null=True, blank=True)
+    level_num = models.IntegerField(default=1) 
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = SoftDeleteManager()
+    original_objects = models.Manager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['role']),
+            models.Index(fields=['email_verified']),
+            models.Index(fields=['deleted_at']),
+        ]
 
     def __str__(self):
         return self.username
@@ -59,17 +132,35 @@ class Course(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     discount_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     duration_hours = models.IntegerField(default=0)
-    requirements = models.TextField(blank=True) # Multiline or JSON-like
-    outcomes = models.TextField(blank=True) # What you'll learn
+    requirements = models.TextField(blank=True) 
+    outcomes = models.TextField(blank=True) 
     is_published = models.BooleanField(default=False)
     is_featured = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = SoftDeleteManager()
+    original_objects = models.Manager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['is_published']),
+            models.Index(fields=['level']),
+            models.Index(fields=['category']),
+            models.Index(fields=['instructor']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
             from django.utils.text import slugify
-            self.slug = slugify(self.title)
+            base_slug = slugify(self.title)
+            slug = base_slug
+            counter = 1
+            while Course.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -79,10 +170,16 @@ class Enrollment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
-    progress = models.IntegerField(default=0) # 0 to 100
+    progress = models.IntegerField(default=0) 
+    status = models.CharField(max_length=50, default="active") # Prisma
+    completed_at = models.DateTimeField(null=True, blank=True) # Prisma
 
     class Meta:
         unique_together = ('user', 'course')
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['enrolled_at']),
+        ]
 
     def __str__(self):
         return f"{self.user.username} enrolled in {self.course.title}"
@@ -111,14 +208,19 @@ class Lesson(models.Model):
     lesson_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='video')
     video_url = models.URLField(max_length=500, blank=True)
     video_file = models.FileField(upload_to='videos/', null=True, blank=True)
-    content = models.TextField(blank=True) # For articles or extra info
-    summary = models.TextField(blank=True) # Short summary for the player
+    content = models.TextField(blank=True) 
+    summary = models.TextField(blank=True) 
     order = models.PositiveIntegerField(default=0)
-    duration = models.CharField(max_length=20, blank=True) # e.g. "12:45"
+    duration = models.CharField(max_length=20, blank=True) 
     is_preview = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['order']
+        indexes = [
+            models.Index(fields=['lesson_type']),
+            models.Index(fields=['is_preview']),
+            models.Index(fields=['section']),
+        ]
 
     def __str__(self):
         return self.title
@@ -127,8 +229,8 @@ class Resource(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='resources')
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to='resources/')
-    file_type = models.CharField(max_length=50, blank=True) # e.g. "pdf", "zip"
-    file_size = models.CharField(max_length=20, blank=True) # e.g. "2.4 MB"
+    file_type = models.CharField(max_length=50, blank=True) 
+    file_size = models.CharField(max_length=20, blank=True) 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -138,6 +240,9 @@ class Quiz(models.Model):
     lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE, related_name='quiz')
     title = models.CharField(max_length=255)
     xp_reward = models.IntegerField(default=100)
+    passing_score = models.IntegerField(default=70) # Prisma
+    time_limit = models.IntegerField(null=True, blank=True) # Prisma
+    attempts_allowed = models.IntegerField(default=1) # Prisma
 
     def __str__(self):
         return self.title
@@ -146,6 +251,8 @@ class Question(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
     text = models.TextField()
     explanation = models.TextField(blank=True)
+    type = models.CharField(max_length=50, default="SINGLE_CHOICE") # Prisma
+    points = models.IntegerField(default=1) # Prisma
 
     def __str__(self):
         return self.text
@@ -163,6 +270,7 @@ class QuizAttempt(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='attempts')
     score = models.IntegerField()
     total_questions = models.IntegerField()
+    passed = models.BooleanField(default=False) # Prisma
     completed_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -173,6 +281,7 @@ class LessonProgress(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='progress')
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(auto_now_add=True)
+    last_position = models.IntegerField(null=True, blank=True) # Prisma
 
     class Meta:
         unique_together = ('user', 'lesson')
@@ -188,6 +297,11 @@ class Discussion(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     liked_by = models.ManyToManyField(User, related_name='liked_discussions', blank=True)
     is_resolved = models.BooleanField(default=False)
+    view_count = models.IntegerField(default=0)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = SoftDeleteManager()
+    original_objects = models.Manager()
 
     class Meta:
         ordering = ['-created_at']
@@ -205,6 +319,10 @@ class DiscussionReply(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     liked_by = models.ManyToManyField(User, related_name='liked_replies', blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    objects = SoftDeleteManager()
+    original_objects = models.Manager()
 
     class Meta:
         ordering = ['created_at']
@@ -231,6 +349,7 @@ class Notification(models.Model):
     link = models.CharField(max_length=255, null=True, blank=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    data = models.JSONField(null=True, blank=True) # Prisma
 
     class Meta:
         ordering = ['-created_at']
@@ -325,18 +444,14 @@ class AssignmentSubmission(models.Model):
         return f"{self.student.username} - {self.assignment.title}"
 
 class Order(models.Model):
-    STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('refunded', 'Refunded'),
-    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='orders')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
     provider_transaction_id = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    currency = models.CharField(max_length=10, default="XOF") # Prisma
+    paid_at = models.DateTimeField(null=True, blank=True) # Prisma
 
     def __str__(self):
         return f"Order {self.id} - {self.user.username} - {self.status}"
@@ -363,3 +478,67 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.created_at}"
+
+# --- New Prisma Models ---
+
+class LevelThreshold(models.Model):
+    level = models.IntegerField(unique=True)
+    xp_required = models.IntegerField()
+    title = models.CharField(max_length=255, null=True, blank=True)
+
+class Badge(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(null=True, blank=True)
+    image_url = models.URLField(max_length=500, null=True, blank=True)
+    criteria = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class UserBadge(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='badges')
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='users')
+    awarded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'badge')
+
+class Tag(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    followers = models.ManyToManyField(User, related_name='followed_tags', blank=True)
+
+class DiscussionTag(models.Model):
+    discussion = models.ForeignKey(Discussion, on_delete=models.CASCADE, related_name='discussion_tags')
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name='discussions')
+
+    class Meta:
+        unique_together = ('discussion', 'tag')
+
+class DiscussionView(models.Model):
+    discussion = models.ForeignKey(Discussion, on_delete=models.CASCADE, related_name='views')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='discussion_views')
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('discussion', 'user')
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='order_items')
+    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('order', 'course')
+
+class Payment(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payment_records', null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default="XOF")
+    provider = models.CharField(max_length=50, choices=PaymentProvider.choices, default=PaymentProvider.PAYDUNYA)
+    status = models.CharField(max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING)
+    transaction_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    metadata = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

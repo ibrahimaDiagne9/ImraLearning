@@ -295,6 +295,7 @@ export const StudentCoursesPage = () => {
                                     title={course.title}
                                     instructor={course.instructor_name}
                                     description={course.short_description || course.description}
+                                    thumbnail={course.thumbnail}
                                     icon={BookOpen}
                                     stats={{
                                         students: course.enrollment_count || 0,
@@ -329,6 +330,7 @@ export const StudentCoursesPage = () => {
                                 title={course.title}
                                 instructor={course.instructor_name}
                                 description={course.short_description || course.description}
+                                thumbnail={course.thumbnail}
                                 icon={BookOpen}
                                 stats={{
                                     students: course.enrollment_count || 0,

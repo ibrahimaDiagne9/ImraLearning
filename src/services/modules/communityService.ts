@@ -65,3 +65,13 @@ export const markMessagesRead = async (conversationId: string) => {
     const response = await apiClient.post(`/conversations/${conversationId}/read/`);
     return response.data;
 };
+
+export const getPublicProfile = async (userId: string) => {
+    const response = await apiClient.get(`/users/${userId}/profile/`);
+    return response.data;
+};
+
+export const searchUsers = async (query: string) => {
+    const response = await apiClient.get('/users/search/', { params: { q: query } });
+    return response.data;
+};

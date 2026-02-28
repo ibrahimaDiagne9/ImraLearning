@@ -4,11 +4,13 @@ import {
     Smile, ArrowLeft, MessageSquare, CheckCheck, Paperclip
 } from 'lucide-react';
 import { useMessages } from '../../context/MessageContext';
+import { NewMessageModal } from './NewMessageModal';
 
 export const MessagingPage = () => {
     const { conversations, activeConversationId, setActiveConversationId, sendMessage, markAsRead } = useMessages();
     const [messageInput, setMessageInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isNewMessageModalOpen, setIsNewMessageModalOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const activeConv = conversations.find(c => c.id === activeConversationId);
@@ -50,9 +52,18 @@ export const MessagingPage = () => {
                 <div className="p-6 space-y-4">
                     <div className="flex items-center justify-between">
                         <h1 className="text-xl font-black text-white uppercase tracking-tighter">Messages</h1>
-                        <button className="p-2 hover:bg-white/5 rounded-full text-blue-400">
-                            <Filter className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsNewMessageModalOpen(true)}
+                                className="p-2 hover:bg-white/5 rounded-full text-blue-400 group"
+                                title="New Message"
+                            >
+                                <MessageSquare className="w-5 h-5 transition-transform group-hover:scale-110" />
+                            </button>
+                            <button className="p-2 hover:bg-white/5 rounded-full text-gray-400">
+                                <Filter className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="relative group">
@@ -214,12 +225,19 @@ export const MessagingPage = () => {
                         <p className="text-gray-400 max-w-xs mx-auto text-sm leading-relaxed">
                             Select a conversation from the sidebar to start collaborating with your instructors and peers.
                         </p>
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-900/20">
+                        <button
+                            onClick={() => setIsNewMessageModalOpen(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-900/20 active:scale-95"
+                        >
                             New Message
                         </button>
                     </div>
                 )}
             </main>
+
+            {isNewMessageModalOpen && (
+                <NewMessageModal onClose={() => setIsNewMessageModalOpen(false)} />
+            )}
         </div>
     );
 };

@@ -107,7 +107,7 @@ class PendingTasksView(APIView):
                 })
             
             from ..models import Enrollment
-            enrollments = Enrollment.objects.filter(user=request.user, progress__gt=0, progress__lt=100).order_by('-updated_at')[:2]
+            enrollments = Enrollment.objects.filter(user=request.user, progress__gt=0, progress__lt=100).order_by('-enrolled_at')[:2]
             for enrollment in enrollments:
                 tasks.append({
                     "id": f"continue-{enrollment.id}",

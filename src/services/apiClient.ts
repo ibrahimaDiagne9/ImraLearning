@@ -5,9 +5,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const apiClient = axios.create({
     baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
 });
 
 // Request interceptor for API calls
@@ -62,8 +59,12 @@ apiClient.interceptors.response.use(
         }
 
         // Global Error Handling
-        const errorMessage = error.response?.data?.message ||
-            error.response?.data?.detail ||
+        // Surfacing more specific error messages from backend
+        const backendError = error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.response?.data?.detail;
+
+        const errorMessage = backendError ||
             error.message ||
             'An unexpected error occurred';
 

@@ -1,5 +1,6 @@
 // Production Build Fix
 import { Twitter, Github, Linkedin, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Footer = () => {
     const currentYear = new Date().getFullYear();
@@ -34,9 +35,14 @@ export const Footer = () => {
                     <div>
                         <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-xs">Platform</h4>
                         <ul className="space-y-4">
-                            {['Courses', 'Discussions', 'Mentorship', 'Certificates'].map((link) => (
-                                <li key={link}>
-                                    <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors text-sm font-medium">{link}</a>
+                            {[
+                                { label: 'Courses', path: '/courses' },
+                                { label: 'Discussions', path: '/discussions' },
+                                { label: 'Messages', path: '/messages' },
+                                { label: 'Profile', path: '/profile' }
+                            ].map((link) => (
+                                <li key={link.label}>
+                                    <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors text-sm font-medium">{link.label}</Link>
                                 </li>
                             ))}
                         </ul>
@@ -45,9 +51,13 @@ export const Footer = () => {
                     <div>
                         <h4 className="text-white font-bold mb-6 uppercase tracking-wider text-xs">Resources</h4>
                         <ul className="space-y-4">
-                            {['Documentation', 'Help Center', 'Blog', 'Community'].map((link) => (
-                                <li key={link}>
-                                    <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors text-sm font-medium">{link}</a>
+                            {[
+                                { label: 'Help Center', path: '/dashboard' },
+                                { label: 'Terms of Service', path: '/dashboard' },
+                                { label: 'Privacy Policy', path: '/dashboard' }
+                            ].map((link) => (
+                                <li key={link.label}>
+                                    <Link to={link.path} className="text-gray-400 hover:text-blue-400 transition-colors text-sm font-medium">{link.label}</Link>
                                 </li>
                             ))}
                         </ul>
@@ -72,9 +82,9 @@ export const Footer = () => {
                 <div className="pt-8 border-t border-gray-800/50 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
                     <p>© {currentYear} ImraLearning Inc. All rights reserved.</p>
                     <div className="flex items-center gap-8">
-                        <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                        <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-                        <a href="#" className="hover:text-white transition-colors">Cookie Settings</a>
+                        <Link to="/dashboard" className="hover:text-white transition-colors">Privacy Policy</Link>
+                        <Link to="/dashboard" className="hover:text-white transition-colors">Terms of Service</Link>
+                        <Link to="/dashboard" className="hover:text-white transition-colors">Cookie Settings</Link>
                     </div>
                 </div>
             </div>

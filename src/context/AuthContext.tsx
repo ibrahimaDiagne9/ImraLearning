@@ -37,6 +37,7 @@ interface AuthContextType {
     setTier: (tier: string) => void;
     setUserRole: (role: UserRole) => void;
     addXP: (amount: number) => void;
+    accessToken: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isPro, setIsProState] = useState<boolean>(localStorage.getItem('isPro') === 'true');
     const [tier, setTierState] = useState<string>(localStorage.getItem('tier') || 'free');
     const [xp, setXP] = useState<number>(parseInt(localStorage.getItem('xp') || '0'));
+    const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('access_token'));
 
     const fetchProfile = async () => {
         try {
@@ -95,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const { access, refresh } = response.data;
             localStorage.setItem('access_token', access);
             localStorage.setItem('refresh_token', refresh);
+            setAccessToken(access);
             setIsAuthenticated(true);
             await fetchProfile();
         } catch (error) {
@@ -121,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('isPro');
         setIsAuthenticated(false);
         setUser(null);
+        setAccessToken(null);
         setIsProState(false);
     };
 
@@ -167,7 +171,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsPro,
             setTier,
             setUserRole,
-            addXP
+            addXP,
+            accessToken
         }}>
             {children}
         </AuthContext.Provider>

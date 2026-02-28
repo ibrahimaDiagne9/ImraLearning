@@ -1,23 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Bell, MessageSquare, BookOpen, FileText, LogOut, User, Crown, Sparkles, Search } from 'lucide-react';
+import { Bell, MessageSquare, BookOpen, FileText, LogOut, User, Crown, Sparkles, Search, Menu, X } from 'lucide-react';
 import { NotificationsPopup } from '../notifications/NotificationsPopup';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useMessages } from '../../context/MessageContext';
 
 interface NavbarProps {
     onLogout?: () => void;
 }
 
 export const Navbar = ({ onLogout }: NavbarProps) => {
-    const { userRole, isPro, logout, xp } = useAuth();
-    const { unreadCount } = useNotifications();
+    const { user: currentUser, userRole, isPro, logout, xp } = useAuth();
+    const { unreadCount: notificationCount } = useNotifications();
+    const { totalUnreadCount: messageCount } = useMessages();
     const navigate = useNavigate();
     const location = useLocation();
     const activePage = location.pathname.substring(1).split('/')[0] || 'dashboard';
 
     const [showNotifications, setShowNotifications] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [navSearchQuery, setNavSearchQuery] = useState('');
     const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -120,13 +123,18 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
                 </button>
                 <button
                     onClick={() => navigate('/messages')}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${activePage === 'messages'
+                    className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors relative ${activePage === 'messages'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-400 hover:text-white'
                         }`}
                 >
                     <MessageSquare className="w-4 h-4" />
                     Messages
+                    {messageCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-surface animate-pulse">
+                            {messageCount}
+                        </span>
+                    )}
                 </button>
                 {userRole === 'teacher' && (
                     <button
@@ -143,7 +151,13 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
             </div>
 
             {/* Right Section: Icons + Profile */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="p-2 md:hidden hover:bg-gray-700 rounded-full transition-colors text-gray-300"
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
                 {!isPro && activePage !== 'memberships' && activePage !== 'checkout' && (
                     <button
                         onClick={() => navigate('/memberships')}
@@ -159,7 +173,7 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
                         className="p-2 hover:bg-gray-700 rounded-full transition-colors relative"
                     >
                         <Bell className="w-5 h-5 text-gray-300" />
-                        {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>}
+                        {notificationCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>}
                     </button>
                     {showNotifications && <NotificationsPopup onClose={() => setShowNotifications(false)} />}
                 </div>
@@ -186,7 +200,11 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
                             <span className="bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm shadow-blue-900/40">PRO</span>
                         )}
                         <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-gray-300 overflow-hidden border border-gray-600">
-                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Professor" alt="Profile" className="w-full h-full object-cover" />
+                            <img
+                                src={currentUser?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username || 'User'}`}
+                                alt="Profile"
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                     </button>
 
@@ -226,6 +244,91 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
                     )}
                 </div>
             </div>
+
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 z-[60] md:hidden bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                >
+                    <div
+                        className="absolute right-0 top-0 bottom-0 w-[280px] bg-[#0B0F1A] border-l border-gray-800 p-6 flex flex-col animate-in slide-in-from-right duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-8">
+                            <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                                Menu
+                            </span>
+                            <button
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="p-2 hover:bg-white/5 rounded-full text-gray-400"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-2 flex-1">
+                            <button
+                                onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activePage === 'dashboard' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <div className="grid grid-cols-2 gap-0.5 w-3.5 h-3.5">
+                                    <span className={`rounded-[1px] ${activePage === 'dashboard' ? 'bg-blue-400' : 'bg-current'}`}></span>
+                                    <span className={`rounded-[1px] ${activePage === 'dashboard' ? 'bg-blue-400' : 'bg-current'}`}></span>
+                                    <span className={`rounded-[1px] ${activePage === 'dashboard' ? 'bg-blue-400' : 'bg-current'}`}></span>
+                                    <span className={`rounded-[1px] ${activePage === 'dashboard' ? 'bg-blue-400' : 'bg-current'}`}></span>
+                                </div>
+                                Dashboard
+                            </button>
+                            <button
+                                onClick={() => { navigate('/courses'); setIsMobileMenuOpen(false); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activePage === 'courses' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <BookOpen className="w-4 h-4" />
+                                Courses
+                            </button>
+                            <button
+                                onClick={() => { navigate('/discussions'); setIsMobileMenuOpen(false); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activePage === 'discussions' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                Discussions
+                            </button>
+                            <button
+                                onClick={() => { navigate('/messages'); setIsMobileMenuOpen(false); }}
+                                className={`flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all relative ${activePage === 'messages' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                Messages
+                                {messageCount > 0 && (
+                                    <span className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0B0F1A]">
+                                        {messageCount}
+                                    </span>
+                                )}
+                            </button>
+                            {userRole === 'teacher' && (
+                                <button
+                                    onClick={() => { navigate('/gradebook'); setIsMobileMenuOpen(false); }}
+                                    className={`flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activePage === 'gradebook' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    <FileText className="w-4 h-4" />
+                                    Gradebook
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="mt-auto pt-6 border-t border-gray-800">
+                            <button
+                                onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+                                className="w-full flex items-center gap-3 p-4 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition-all"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                Log Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </nav>
     );
 };

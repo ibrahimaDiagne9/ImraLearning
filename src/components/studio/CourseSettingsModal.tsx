@@ -9,6 +9,7 @@ interface CourseSettingsModalProps {
         level: string;
         price: string;
         durationHours: string;
+        thumbnail: string | File;
     };
     onUpdate: (field: string, value: any) => void;
     onSave: () => void;
@@ -41,6 +42,31 @@ export const CourseSettingsModal = ({ isOpen, onClose, data, onUpdate, onSave, i
 
                 {/* Content */}
                 <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    {/* Thumbnail Upload */}
+                    <div className="space-y-3">
+                        <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest block">Course Thumbnail</label>
+                        <input
+                            type="file"
+                            id="course-thumbnail-upload"
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) onUpdate('thumbnailFile', file);
+                            }}
+                            className="hidden"
+                        />
+                        <div
+                            onClick={() => document.getElementById('course-thumbnail-upload')?.click()}
+                            className="w-full bg-[#020617] border border-gray-800 rounded-2xl px-5 py-4 text-sm text-gray-300 focus:outline-none border-dashed hover:border-blue-500/50 transition-all cursor-pointer flex items-center justify-between"
+                        >
+                            <span className="truncate max-w-[80%]">
+                                {(data.thumbnail && typeof data.thumbnail !== 'string') ? (data.thumbnail as File).name : (data.thumbnail || 'Select image...')}
+                            </span>
+                            <Globe className="w-4 h-4 text-gray-600" />
+                        </div>
+                        <p className="text-[9px] text-gray-600 font-bold italic">Upload a PNG or JPG for the course cover.</p>
+                    </div>
+
                     {/* Description */}
                     <div className="space-y-3">
                         <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest block">Course Description</label>
