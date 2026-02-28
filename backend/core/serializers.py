@@ -1,6 +1,18 @@
 from rest_framework import serializers
 from django.db.models import Avg, Count
-from .models import User, Course, Section, Lesson, Quiz, Question, Choice, Enrollment, Discussion, DiscussionReply, Notification, Resource, QuizAttempt, Membership, Certificate, LiveSession, Review, Assignment, AssignmentSubmission, Order, Conversation, Message
+from .models import User, Course, Section, Lesson, Quiz, Question, Choice, Enrollment, Discussion, DiscussionReply, Notification, Resource, QuizAttempt, Membership, Certificate, LiveSession, Review, Assignment, AssignmentSubmission, Order, Conversation, Message, Badge, UserBadge, LevelThreshold
+from .services.auth_service import AuthService
+
+class BadgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Badge
+        fields = ('id', 'name', 'description', 'image_url', 'criteria')
+
+class UserBadgeSerializer(serializers.ModelSerializer):
+    badge = BadgeSerializer(read_only=True)
+    class Meta:
+        model = UserBadge
+        fields = ('id', 'badge', 'awarded_at')
 
 class LiveSessionSerializer(serializers.ModelSerializer):
     instructor_name = serializers.ReadOnlyField(source='instructor.username')
@@ -54,11 +66,47 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     membership = MembershipSerializer(read_only=True)
+    badges = serializers.SerializerMethodField()
+    next_level_xp = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'role', 'xp_points', 'avatar', 'bio', 'location', 'timezone', 'date_joined', 'is_pro', 'membership')
-        read_only_fields = ('xp_points', 'date_joined')
+        fields = ('id', 'username', 'email', 'role', 'xp_points', 'level_num', 'avatar', 'bio', 'location', 'timezone', 'date_joined', 'is_pro', 'membership', 'badges', 'next_level_xp')
+        read_only_fields = ('xp_points', 'level_num', 'date_joined')
+
+    def get_badges(self, obj):
+        # Prevent N+1 query by prefetching the actual badge relation
+        user_badges = obj.badges.select_related('badge').all()
+        return UserBadgeSerializer(user_badges, many=True).data
+
+    def get_next_level_xp(self, obj):
+        threshold = LevelThreshold.objects.filter(level=obj.level_num + 1).first()
+        if threshold:
+            return threshold.xp_required
+        return None
+
+class PublicProfileSerializer(serializers.ModelSerializer):
+    courses_count = serializers.SerializerMethodField()
+    badges_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'role', 'avatar', 'bio', 'location', 'timezone', 
+            'date_joined', 'xp_points', 'level_num', 'courses_count', 
+            'badges_count'
+        )
+
+    def get_courses_count(self, obj):
+        try:
+            if obj.role == 'teacher':
+                return obj.teaching_courses.count()
+            return obj.enrollments.count()
+        except Exception:
+            return 0
+
+    def get_badges_count(self, obj):
+        return obj.badges.count()
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -74,6 +122,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             role=validated_data.get('role', 'student')
         )
+        
+        # Send Verification Email
+        try:
+            AuthService.send_verification_email(user)
+        except Exception as e:
+            # We don't want to completely fail registration if email sending fails
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send verification email to {user.email}: {e}")
+
         return user
 
 class ChoiceSerializer(serializers.ModelSerializer):
@@ -96,9 +153,19 @@ class QuizSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'xp_reward', 'questions')
 
 class ResourceSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Resource
-        fields = ('id', 'title', 'file', 'file_type', 'file_size', 'created_at')
+        fields = ('id', 'title', 'file', 'file_url', 'file_type', 'file_size', 'created_at')
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
 
 class QuizAttemptSerializer(serializers.ModelSerializer):
     class Meta:
@@ -106,74 +173,80 @@ class QuizAttemptSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'quiz', 'score', 'total_questions', 'completed_at')
         read_only_fields = ('user', 'completed_at')
 
-class LessonSerializer(serializers.ModelSerializer):
+class LessonPreviewSerializer(serializers.ModelSerializer):
+    """V2: Lightweight version for public course landing pages."""
+    class Meta:
+        model = Lesson
+        fields = ('id', 'title', 'lesson_type', 'order', 'duration', 'is_preview')
+
+class AssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Assignment
+        fields = ('id', 'title', 'instructions', 'total_points', 'due_date')
+
+class LessonLearningSerializer(serializers.ModelSerializer):
+    """V2: Full version for the Lesson Player (Requires Enrollment/Ownership)."""
     id = serializers.IntegerField(required=False)
     is_completed = serializers.BooleanField(source='annotated_is_completed', read_only=True)
     resources = ResourceSerializer(many=True, read_only=True)
     quiz = QuizSerializer(required=False, allow_null=True)
-    assignment = serializers.SerializerMethodField()
-    submission = serializers.SerializerMethodField()
+    assignment = AssignmentSerializer(required=False, allow_null=True)
+    video_file_url = serializers.SerializerMethodField()
+    submission_id = serializers.IntegerField(source='annotated_submission_id', read_only=True)
     
     class Meta:
         model = Lesson
-        fields = ('id', 'title', 'lesson_type', 'video_url', 'video_file', 'content', 'summary', 'order', 'duration', 'is_completed', 'is_preview', 'resources', 'quiz', 'assignment', 'submission')
+        fields = ('id', 'title', 'lesson_type', 'video_url', 'video_file', 'video_file_url', 'content', 'summary', 'order', 'duration', 'is_completed', 'is_preview', 'resources', 'quiz', 'assignment', 'submission_id')
         read_only_fields = ('video_file',)
 
-    def to_representation(self, instance):
-        try:
-            repr = super().to_representation(instance)
+    def get_video_file_url(self, obj):
+        if obj.video_file:
             request = self.context.get('request')
-            if not request:
-                return repr
-                
-            user = request.user
-            course = instance.section.course
-            
-            # Check if user is enrolled or is the instructor
-            is_enrolled = course.enrollments.filter(user=user).exists() if user.is_authenticated else False
-            is_instructor = course.instructor == user if user.is_authenticated else False
-            
-            if not (is_enrolled or is_instructor):
-                # Hide sensitive fields for non-enrolled students
-                repr['video_url'] = None
-                repr['video_file'] = None
-                repr['content'] = ""
-                repr['resources'] = []
-                repr['quiz'] = None
-                repr['assignment'] = None
-                
-            return repr
-        except Exception as e:
-            print(f"DEBUG: Error in LessonSerializer.to_representation for lesson {instance.id}: {e}")
-            import traceback
-            traceback.print_exc()
-            return super().to_representation(instance)
-
-    def get_assignment(self, obj):
-        if hasattr(obj, 'assignment'):
-            return AssignmentSerializer(obj.assignment).data
+            if request:
+                return request.build_absolute_uri(obj.video_file.url)
+            return obj.video_file.url
         return None
 
+    def update(self, instance, validated_data):
+        # Prevent frontend from saving hardcoded localhost or own domain URLs back to DB
+        video_url = validated_data.get('video_url', '')
+        if video_url and ('localhost' in video_url or '127.0.0.1' in video_url or '/media/videos' in video_url):
+            validated_data['video_url'] = ''
+            
+        return super().update(instance, validated_data)
 
-    def get_submission(self, obj):
-        submission_id = getattr(obj, 'annotated_submission_id', None)
-        if submission_id:
-            try:
-                submission = AssignmentSubmission.objects.get(id=submission_id)
-                return AssignmentSubmissionSerializer(submission).data
-            except AssignmentSubmission.DoesNotExist:
-                pass
+class LessonSerializer(LessonLearningSerializer):
+    """Backward compatibility with automatic privacy masking."""
+    def to_representation(self, instance):
+        repr = super().to_representation(instance)
+        request = self.context.get('request')
         
-        # Fallback for unsaved/temp objects or non-annotated views
-        user = self.context.get('request').user if 'request' in self.context else None
-        if user and user.is_authenticated and hasattr(obj, 'assignment'):
-            submission = AssignmentSubmission.objects.filter(
-                assignment=obj.assignment, 
-                student=user
-            ).select_related('student', 'assignment').first() # Optimized query
-            if submission:
-                return AssignmentSubmissionSerializer(submission).data
-        return None
+        # Safe access to user
+        user = getattr(request, 'user', None)
+        if not user:
+            # Mask if no user context
+            mask = ['video_url', 'video_file', 'video_file_url', 'content', 'resources', 'quiz', 'assignment']
+            for field in mask: repr[field] = None if field != 'content' else ""
+            repr['resources'] = []
+            return repr
+            
+        course = instance.section.course
+        is_enrolled = getattr(course, 'annotated_is_enrolled', False)
+        if not is_enrolled and user.is_authenticated:
+            is_enrolled = course.enrollments.filter(user=user).exists()
+        
+        is_instructor = (course.instructor_id == user.id) if user.is_authenticated else False
+        
+        if not (is_enrolled or is_instructor or instance.is_preview):
+            # Mask sensitive fields
+            mask = ['video_url', 'video_file', 'video_file_url', 'content', 'resources', 'quiz', 'assignment', 'submission_id']
+            for field in mask: repr[field] = None if field != 'content' else ""
+            repr['resources'] = []
+            
+        # Prioritize absolute URL
+        if not repr.get('video_url') and repr.get('video_file_url'):
+            repr['video_url'] = repr.get('video_file_url')
+        return repr
 
 class SectionSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
@@ -181,7 +254,7 @@ class SectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ('id', 'title', 'description', 'order', 'lessons')
+        fields = ('id', 'title', 'order', 'lessons')
 
 class CourseSerializer(serializers.ModelSerializer):
     instructor_name = serializers.ReadOnlyField(source='instructor.username')
@@ -193,11 +266,21 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ('id', 'title', 'slug', 'description', 'short_description', 'category', 'level', 'language', 'thumbnail', 
+        fields = ('id', 'title', 'slug', 'description', 'short_description', 'category', 'level', 'language', 'thumbnail', 'thumbnail_url',
                   'video_preview_url', 'instructor', 'instructor_name', 'price', 'discount_price', 'duration_hours', 
                   'requirements', 'outcomes', 'is_published', 'is_featured', 'sections', 'is_enrolled', 'progress_percentage', 
                   'enrollment_count', 'average_rating')
         read_only_fields = ('instructor', 'slug')
+
+    thumbnail_url = serializers.SerializerMethodField()
+
+    def get_thumbnail_url(self, obj):
+        if obj.thumbnail:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.thumbnail.url)
+            return obj.thumbnail.url
+        return None
 
 
     def get_progress_percentage(self, obj):
@@ -228,8 +311,9 @@ class CourseSerializer(serializers.ModelSerializer):
             section = Section.objects.create(course=course, **section_data)
             for lesson_data in lessons_data:
                 lesson_data.pop('id', None)
-                # Pop nested quiz data
+                # Pop nested quiz and assignment data
                 quiz_data = lesson_data.pop('quiz', None)
+                assignment_data = lesson_data.pop('assignment', None)
                 lesson = Lesson.objects.create(section=section, **lesson_data)
                 
                 # Handle nested Quiz creation
@@ -244,6 +328,11 @@ class CourseSerializer(serializers.ModelSerializer):
                         for choice_data in choices_data:
                             choice_data.pop('id', None)
                             Choice.objects.create(question=question, **choice_data)
+                
+                # Handle nested Assignment creation
+                if assignment_data:
+                    assignment_data.pop('id', None)
+                    Assignment.objects.create(lesson=lesson, **assignment_data)
 
         return course
 
@@ -258,7 +347,7 @@ class CourseSerializer(serializers.ModelSerializer):
         new_section_ids = []
 
         for section_data in sections_data:
-            section_id = section_data.get('id')
+            section_id = section_data.pop('id', None)
             lessons_data = section_data.pop('lessons', [])
             
             if section_id and str(section_id).isdigit() and int(section_id) in existing_sections:
@@ -276,8 +365,9 @@ class CourseSerializer(serializers.ModelSerializer):
             new_lesson_ids = []
 
             for lesson_data in lessons_data:
-                lesson_id = lesson_data.get('id')
+                lesson_id = lesson_data.pop('id', None)
                 quiz_data = lesson_data.pop('quiz', None)
+                assignment_data = lesson_data.pop('assignment', None)
 
                 if lesson_id and str(lesson_id).isdigit() and int(lesson_id) in existing_lessons:
                     lesson = existing_lessons[int(lesson_id)]
@@ -313,6 +403,17 @@ class CourseSerializer(serializers.ModelSerializer):
                             choice_data.pop('id', None) # Remove temp ID
                             Choice.objects.create(question=question, **choice_data)
 
+                # Handle Assignment Update/Creation
+                if assignment_data:
+                    assignment_data.pop('id', None)
+                    if hasattr(lesson, 'assignment'):
+                        assignment = lesson.assignment
+                        for attr, value in assignment_data.items():
+                            setattr(assignment, attr, value)
+                        assignment.save()
+                    else:
+                        Assignment.objects.create(lesson=lesson, **assignment_data)
+
             section.lessons.exclude(id__in=new_lesson_ids).delete()
 
         instance.sections.exclude(id__in=new_section_ids).delete()
@@ -329,6 +430,8 @@ class DiscussionReplySerializer(serializers.ModelSerializer):
         fields = ('id', 'discussion', 'author', 'content', 'created_at', 'likes_count', 'is_liked')
         read_only_fields = ('discussion', 'author', 'created_at')
 
+# Removed duplicate definition
+
 class DiscussionSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     replies = DiscussionReplySerializer(many=True, read_only=True)
@@ -342,10 +445,7 @@ class DiscussionSerializer(serializers.ModelSerializer):
         read_only_fields = ('author', 'created_at', 'replies')
 
 
-class AssignmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Assignment
-        fields = ('id', 'title', 'instructions', 'total_points', 'due_date')
+# Already moved up
 
 class AssignmentSubmissionSerializer(serializers.ModelSerializer):
     student_name = serializers.ReadOnlyField(source='student.username')
