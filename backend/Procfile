@@ -1,2 +1,2 @@
 release: python manage.py migrate
-web: gunicorn imra_backend.wsgi
+web: gunicorn --bind 0.0.0.0:$PORT imra_backend.wsgi
