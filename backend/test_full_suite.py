@@ -50,7 +50,7 @@ class LMSFullSuiteTester:
 
     def cleanup(self):
         print_header("Cleaning up old test data")
-        User.objects.filter(email__in=['qa_teacher_full@test.com', 'qa_student_full@test.com']).delete()
+        User.original_objects.filter(username__in=['qa_teacher_full', 'qa_student_full']).delete()
         print("Cleanup complete.")
 
     def test_auth_flow(self):
