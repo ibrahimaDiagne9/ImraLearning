@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import ReactPlayerImport from 'react-player';
 import { Sparkles, Info, X } from 'lucide-react';
 import { VideoControls } from '../VideoControls';
-import { getVideoUrl } from '../../../utils/videoUtils';
+import { getVideoUrl, getVideoSourceType } from '../../../utils/videoUtils';
 import type { Lesson } from '../../../hooks/useLessonPlayer';
 
 const ReactPlayer = ReactPlayerImport as any;
@@ -59,6 +59,22 @@ export const CinemaPlayer = ({
         setPlayed(0);
     }, [lesson?.id, setPlaybackError, setIsLoading, setPlayed]);
 
+    // Sync native video props since they aren't fully supported declaratively
+    useEffect(() => {
+        const videoElement = playerRef.current;
+        if (videoElement && videoElement.tagName === 'VIDEO') {
+            videoElement.volume = volume;
+            videoElement.muted = muted;
+            videoElement.playbackRate = playbackRate;
+
+            if (isPlaying && videoElement.paused) {
+                videoElement.play().catch(e => console.error("Play failed:", e));
+            } else if (!isPlaying && !videoElement.paused) {
+                videoElement.pause();
+            }
+        }
+    }, [volume, muted, playbackRate, isPlaying, playerRef]);
+
     if (!lesson) return null;
     const videoUrl = getVideoUrl(lesson.video_url, lesson.video_file);
 
@@ -74,73 +90,90 @@ export const CinemaPlayer = ({
         );
     }
 
-    if (playbackError) {
-        return (
-            <div className="flex flex-col items-center justify-center text-center p-20 space-y-4 bg-[#0A0D14] h-full">
-                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/10">
-                    <X className="w-8 h-8 text-red-500" />
+    // Instead of returning early on error, render over the player so we can retry properly
+
+    const sourceType = getVideoSourceType(videoUrl);
+
+    return (
+        <div className="group relative w-full h-full bg-black overflow-hidden select-none">
+            {sourceType === 'file' ? (
+                <video
+                    ref={playerRef}
+                    src={videoUrl}
+                    className="w-full h-full object-contain"
+                    playsInline
+                    controlsList="nodownload"
+                    onWaiting={() => setIsLoading(true)}
+                    onPlaying={() => setIsLoading(false)}
+                    onCanPlay={() => setIsLoading(false)}
+                    onDurationChange={(e) => setDuration(e.currentTarget.duration)}
+                    onTimeUpdate={(e) => setPlayed(e.currentTarget.currentTime / e.currentTarget.duration)}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={onEnded}
+                    onError={(e) => {
+                        console.error("Native Video Error:", e);
+                        setPlaybackError("Failed to load video file. Format might not be supported.");
+                    }}
+                />
+            ) : (
+                <ReactPlayer
+                    ref={playerRef}
+                    url={videoUrl}
+                    width="100%"
+                    height="100%"
+                    playing={isPlaying}
+                    volume={volume}
+                    muted={muted}
+                    playbackRate={playbackRate}
+                    style={{ position: 'absolute', top: 0, left: 0 }}
+                    config={{
+                        file: {
+                            forceVideo: true,
+                            attributes: {
+                                controlsList: 'nodownload',
+                                playsInline: true,
+                            },
+                        },
+                    }}
+                    onBuffer={() => setIsLoading(true)}
+                    onBufferEnd={() => setIsLoading(false)}
+                    onReady={() => setIsLoading(false)}
+                    onDuration={setDuration}
+                    onProgress={(p: any) => setPlayed(p.played)}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={onEnded}
+                    onError={(e: any) => {
+                        console.error("Player Error:", e);
+                        setPlaybackError("Failed to play remote video.");
+                    }}
+                />
+            )}
+
+            {isLoading && !playbackError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm transition-all z-10">
+                    <div className="relative">
+                        <div className="w-16 h-16 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                        <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-blue-500 animate-pulse" />
+                    </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Playback Failed</h3>
-                <p className="text-gray-400 max-w-xs mx-auto mb-8">{playbackError}</p>
-                <div className="flex gap-3">
+            )}
+
+            {playbackError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-20 space-y-4 bg-black/90 backdrop-blur-md z-20">
+                    <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/10">
+                        <X className="w-8 h-8 text-red-500" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Playback Failed</h3>
+                    <p className="text-gray-400 max-w-xs mx-auto mb-8">{playbackError}</p>
+                    <p className="text-xs text-gray-500 mb-4 font-mono break-all">{videoUrl}</p>
                     <button
                         onClick={() => { setPlaybackError(null); setIsPlaying(true); }}
                         className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all"
                     >
                         Try Reconnect
                     </button>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="group relative w-full h-full bg-black overflow-hidden select-none">
-            <ReactPlayer
-                ref={playerRef}
-                url={videoUrl}
-                width="100%"
-                height="100%"
-                playing={isPlaying}
-                volume={volume}
-                muted={muted}
-                playbackRate={playbackRate}
-                style={{ position: 'absolute', top: 0, left: 0 }}
-                config={{
-                    file: {
-                        attributes: {
-                            // Removing crossOrigin: 'anonymous' to prevent black screen on servers without CORS headers
-                        },
-                    },
-                }}
-                onBuffer={() => setIsLoading(true)}
-                onBufferEnd={() => setIsLoading(false)}
-                onReady={() => setIsLoading(false)}
-                onDuration={setDuration}
-                onProgress={(p: any) => setPlayed(p.played)}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={onEnded}
-                onError={(e: any) => {
-                    console.error("Player Error:", e);
-                    let message = "Playback Error: ";
-                    if (!navigator.onLine) {
-                        message += "You are offline.";
-                    } else if (e?.target?.error?.code === 4) {
-                        message += "Media format not supported or network failed.";
-                    } else {
-                        message += "Failed to play video.";
-                    }
-                    setPlaybackError(message);
-                }}
-            />
-
-            {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm transition-all z-10">
-                    <div className="relative">
-                        <div className="w-16 h-16 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-                        <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-blue-500 animate-pulse" />
-                    </div>
                 </div>
             )}
 
