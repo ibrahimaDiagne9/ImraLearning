@@ -68,7 +68,7 @@ export const CinemaPlayer = ({
             videoElement.playbackRate = playbackRate;
 
             if (isPlaying && videoElement.paused) {
-                videoElement.play().catch(e => console.error("Play failed:", e));
+                videoElement.play().catch((e: any) => console.error("Play failed:", e));
             } else if (!isPlaying && !videoElement.paused) {
                 videoElement.pause();
             }
@@ -111,7 +111,7 @@ export const CinemaPlayer = ({
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
                     onEnded={onEnded}
-                    onError={(e) => {
+                    onError={(e: any) => {
                         console.error("Native Video Error:", e);
                         setPlaybackError("Failed to load video file. Format might not be supported.");
                     }}
