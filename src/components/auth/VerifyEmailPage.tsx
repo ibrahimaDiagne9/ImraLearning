@@ -80,15 +80,32 @@ export const VerifyEmailPage = () => {
                                 <p className="text-gray-400 text-sm">{errorMessage}</p>
                             </div>
                             <div className="w-full flex flex-col gap-3 mt-4">
+                                {(errorMessage.toLowerCase().includes('expire') || errorMessage.toLowerCase().includes('invalid')) && (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                const { requestEmailVerification } = await import('../../services/api');
+                                                await requestEmailVerification();
+                                                const { toast } = await import('../../services/toast');
+                                                toast.success('A new verification email has been sent!');
+                                            } catch (e) {
+                                                console.error(e);
+                                            }
+                                        }}
+                                        className="w-full flex items-center justify-center py-3 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                    >
+                                        Resend Verification Link
+                                    </button>
+                                )}
                                 <Link
                                     to="/login"
-                                    className="w-full flex items-center justify-center py-3 px-4 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                    className="w-full flex items-center justify-center py-3 px-4 rounded-xl text-sm font-bold text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors"
                                 >
                                     Go to Sign In
                                 </Link>
                                 <Link
                                     to="/dashboard"
-                                    className="w-full flex items-center justify-center py-3 px-4 rounded-xl text-sm font-bold text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors"
+                                    className="w-full flex items-center justify-center py-3 px-4 rounded-xl text-sm font-bold text-gray-500 hover:text-gray-400 transition-colors"
                                 >
                                     Skip for now
                                 </Link>

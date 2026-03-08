@@ -163,7 +163,7 @@ export const ProfilePage = ({ userRole, onBack }: ProfilePageProps) => {
     const currentLevel = Math.floor((profileUser.xp_points || 0) / 1000) + 1;
     const progressToNext = (((profileUser.xp_points || 0) % 1000) / 1000) * 100;
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto">
             <button
                 onClick={onBack}
                 className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors text-sm font-medium"
@@ -176,7 +176,7 @@ export const ProfilePage = ({ userRole, onBack }: ProfilePageProps) => {
                 {/* Left Column - Profile Info */}
                 <div className="space-y-6">
                     {/* User Card */}
-                    <div className="bg-[#111827] border border-gray-800 rounded-xl p-8 flex flex-col items-center text-center">
+                    <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 md:p-8 flex flex-col items-center text-center">
                         <button
                             className={`relative mb-4 group ${isOwnProfile ? 'cursor-pointer' : ''} border-none bg-transparent p-0 outline-none w-24 h-24 rounded-full`}
                             onClick={() => {
@@ -304,7 +304,7 @@ export const ProfilePage = ({ userRole, onBack }: ProfilePageProps) => {
 
                 {/* Right Column - Settings or Bio */}
                 <div className="lg:col-span-2 space-y-8">
-                    <div className="bg-[#111827] border border-gray-800 rounded-xl p-8">
+                    <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 md:p-8">
                         <div className="flex justify-between items-center mb-8">
                             <h2 className="text-xl font-bold text-white">
                                 {isOwnProfile ? 'Profile Settings' : `${profileUser.username}'s Profile`}

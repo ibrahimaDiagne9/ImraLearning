@@ -41,13 +41,13 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
                 <input
                     value={lesson.title}
                     onChange={(e) => onUpdate({ title: e.target.value })}
-                    className="w-full bg-transparent text-4xl font-black text-white focus:outline-none placeholder:text-gray-800 tracking-tight"
+                    className="w-full bg-transparent text-2xl md:text-4xl font-black text-white focus:outline-none placeholder:text-gray-800 tracking-tight"
                     placeholder="Untitled Lesson"
                 />
             </div>
 
             {/* Lesson Type Toggle */}
-            <div className="flex gap-4 p-1 bg-gray-900 rounded-xl w-fit">
+            <div className="flex gap-4 p-1 bg-gray-900 rounded-xl w-full sm:w-fit overflow-x-auto custom-scrollbar">
                 {[
                     { id: 'video' as LessonType, icon: Video, label: 'Video Lesson' },
                     { id: 'article' as LessonType, icon: FileText, label: 'Article content' },
@@ -101,17 +101,17 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
             />
 
             {/* Settings Toolbar */}
-            <div className="pt-12 border-t border-gray-800 flex gap-4">
+            <div className="pt-12 border-t border-gray-800 flex flex-col sm:flex-row gap-4">
                 <button
                     onClick={onOpenSettings}
-                    className="flex items-center gap-2 px-8 py-4 bg-[#111827] hover:bg-gray-800 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-gray-800"
+                    className="flex items-center justify-center gap-2 px-8 py-4 bg-[#111827] hover:bg-gray-800 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-gray-800"
                 >
                     <Settings className="w-4 h-4" />
                     Visibility & Settings
                 </button>
                 <button
                     onClick={onDeleteLesson}
-                    className="flex items-center gap-2 px-8 py-4 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                    className="flex items-center justify-center gap-2 px-8 py-4 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
                 >
                     <Trash2 className="w-4 h-4" />
                     Delete Lesson

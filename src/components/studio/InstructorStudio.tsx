@@ -50,6 +50,7 @@ export const InstructorStudio = () => {
 
     // UI & Local State
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
     // Sync query data to local editing state
@@ -282,13 +283,19 @@ export const InstructorStudio = () => {
                 isSaving={saveMutation.isPending}
                 onPreview={() => courseId === 'new' ? showToast('Please save your course as a draft before previewing.', 'warning') : navigate(`/learn/${courseId}`, { state: { fromStudio: true } })}
                 onSave={handleSave}
+                onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             />
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden relative">
                 <StudioSidebar
+                    isOpen={isSidebarOpen}
+                    onClose={() => setIsSidebarOpen(false)}
                     sections={sections}
                     activeLessonId={activeLessonId}
-                    setActiveLessonId={setActiveLessonId}
+                    setActiveLessonId={(id) => {
+                        setActiveLessonId(id);
+                        if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                    }}
                     toggleSection={toggleSection}
                     addSection={addSection}
                     addLesson={addLesson}
@@ -299,7 +306,7 @@ export const InstructorStudio = () => {
                     moveLesson={moveLesson}
                 />
 
-                <main className="flex-1 bg-[#020617] overflow-y-auto custom-scrollbar p-12">
+                <main className="flex-1 bg-[#020617] overflow-y-auto custom-scrollbar p-6 md:p-12">
                     {activeLesson ? (
                         <LessonEditor
                             lesson={activeLesson}

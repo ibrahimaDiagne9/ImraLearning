@@ -46,8 +46,14 @@ class ResetPasswordConfirmView(APIView):
         if not user:
             return Response({"error": "Invalid or expired reset token"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check for expiration
+        from django.utils import timezone
+        if user.password_reset_expires and user.password_reset_expires < timezone.now():
+            return Response({"error": "Reset token has expired"}, status=status.HTTP_400_BAD_REQUEST)
+
         user.set_password(new_password)
         user.password_reset_token = None
+        user.password_reset_expires = None
         user.save()
         return Response({"message": "Password successfully reset."})
 
@@ -61,11 +67,17 @@ class VerifyEmailConfirmView(APIView):
 
         user = User.objects.filter(email_verification_token=token).first()
         if not user:
-            return Response({"error": "Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid verification token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for expiration
+        from django.utils import timezone
+        if user.email_verification_expires and user.email_verification_expires < timezone.now():
+            return Response({"error": "Verification token has expired"}, status=status.HTTP_400_BAD_REQUEST)
 
         user.email_verified = True
         user.email_verification_token = None
-        user.save(update_fields=['email_verified', 'email_verification_token'])
+        user.email_verification_expires = None
+        user.save(update_fields=['email_verified', 'email_verification_token', 'email_verification_expires'])
         return Response({"message": "Email successfully verified."})
 
 class RequestEmailVerificationView(APIView):

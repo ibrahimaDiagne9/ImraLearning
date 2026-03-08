@@ -150,7 +150,13 @@ export const LoginPage = ({ onSignup }: LoginPageProps) => {
                                 </div>
                                 <span className="text-gray-400">Remember me</span>
                             </label>
-                            <a href="#" className="text-blue-400 hover:text-blue-300 font-medium">Forgot password?</a>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/forgot-password')}
+                                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                            >
+                                Forgot password?
+                            </button>
                         </div>
 
                         <button

@@ -36,3 +36,10 @@ class IsInstructor(permissions.BasePermission):
         if hasattr(obj, 'lesson'):
             return obj.lesson.section.course.instructor == request.user
         return False
+
+class IsEmailVerified(permissions.BasePermission):
+    """
+    Custom permission to only allow verified users to perform actions.
+    """
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.email_verified)

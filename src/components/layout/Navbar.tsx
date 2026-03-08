@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Bell, MessageSquare, BookOpen, FileText, LogOut, User, Crown, Sparkles, Search, Menu, X } from 'lucide-react';
 import { NotificationsPopup } from '../notifications/NotificationsPopup';
 import { useAuth } from '../../context/AuthContext';
@@ -55,13 +55,13 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
         <nav className="bg-surface border-b border-gray-700 h-16 flex items-center justify-between px-6 sticky top-0 z-50">
             {/* Left Section: Logo + Toggle */}
             <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                    <div className="bg-primary/20 p-2 rounded-lg">
-                        <MessageSquare className="w-6 h-6 text-primary" />
-                    </div>
-                    <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                        IMRA Class
-                    </span>
+                <div className="flex items-center gap-3">
+                    <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                        <img src="/logo.png" alt="IMRA Class" className="h-10 w-auto" />
+                        <span className="text-xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tighter uppercase whitespace-nowrap">
+                            IMRA Class
+                        </span>
+                    </Link>
                 </div>
 
                 <div className="flex items-center bg-gray-800 rounded-lg p-1.5 px-3 border border-gray-700">
@@ -267,7 +267,19 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-2 flex-1">
+                        <div className="flex flex-col gap-4 flex-1">
+                            {/* Mobile Search */}
+                            <form onSubmit={(e) => { handleSearch(e); setIsMobileMenuOpen(false); }} className="relative mb-2">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Search courses..."
+                                    value={navSearchQuery}
+                                    onChange={(e) => setNavSearchQuery(e.target.value)}
+                                    className="w-full bg-gray-900 border border-gray-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                />
+                            </form>
+
                             <button
                                 onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }}
                                 className={`flex items-center gap-3 p-4 rounded-xl text-sm font-bold transition-all ${activePage === 'dashboard' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}

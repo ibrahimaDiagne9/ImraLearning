@@ -12,8 +12,8 @@ export const CourseTabs = ({ activeTab, setActiveTab }: CourseTabsProps) => {
     ];
 
     return (
-        <div className="border-b border-white/5 mb-8">
-            <div className="flex items-center gap-8">
+        <div className="border-b border-white/5 mb-8 overflow-x-auto custom-scrollbar">
+            <div className="flex items-center gap-8 min-w-max">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}

@@ -87,7 +87,7 @@ export const useLessonPlayer = (course: Course | null, initialLessonId?: number 
     const handleSeek = useCallback((amount: number) => {
         if (playerRef.current) {
             const currentTime = playerRef.current.getCurrentTime();
-            playerRef.current.seekTo(currentTime + amount);
+            playerRef.current.seekTo(currentTime + amount, 'seconds');
         }
     }, []);
 

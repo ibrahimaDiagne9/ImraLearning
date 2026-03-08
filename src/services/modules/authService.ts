@@ -8,3 +8,8 @@ export const updateProfile = async (data: any) => {
     const response = await apiClient.patch('/auth/profile/', data, { headers });
     return response.data;
 };
+
+export const requestEmailVerification = async () => {
+    const response = await apiClient.post('/auth/verify-email/');
+    return response.data;
+};

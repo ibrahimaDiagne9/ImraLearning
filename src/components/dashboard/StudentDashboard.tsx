@@ -77,7 +77,7 @@ export const StudentDashboard = ({ onOpenModal }: StudentDashboardProps) => {
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-8">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 md:space-y-8">
             <DashboardHeader />
 
             {/* Stats Row */}
@@ -120,9 +120,9 @@ export const StudentDashboard = ({ onOpenModal }: StudentDashboardProps) => {
                         {enrolledCourses.length > 0 ? (
                             (enrolledCourses || []).slice(0, 3).map((course) => (
                                 <div key={course.id} className="bg-[#111827] border border-gray-800 rounded-xl p-6 relative overflow-hidden group hover:border-gray-700 transition-all">
-                                    <div className="flex items-start justify-between mb-4">
+                                    <div className="flex flex-col sm:flex-row items-start justify-between mb-4 gap-4">
                                         <div className="flex gap-4">
-                                            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex-shrink-0 flex items-center justify-center">
                                                 {course.thumbnail ? (
                                                     <img src={course.thumbnail} alt="" className="w-full h-full object-cover rounded-lg" />
                                                 ) : (
@@ -172,8 +172,8 @@ export const StudentDashboard = ({ onOpenModal }: StudentDashboardProps) => {
                     </div>
 
                     {/* Performance Report CTA */}
-                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 relative overflow-hidden group shadow-2xl shadow-blue-500/20">
-                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-blue-500/20">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500 hidden sm:block">
                             <Sparkles className="w-24 h-24 text-white" />
                         </div>
                         <div className="relative z-10">

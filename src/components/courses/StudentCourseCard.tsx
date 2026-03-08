@@ -44,7 +44,7 @@ export const StudentCourseCard = ({
     const getImageUrl = (url?: string) => {
         if (!url) return '';
         if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://api.imraedu.com';
         return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 

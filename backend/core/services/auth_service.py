@@ -1,5 +1,9 @@
 import uuid
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives, send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.utils import timezone
+from datetime import timedelta
 from django.conf import settings
 from ..models import User
 
@@ -14,11 +18,12 @@ class AuthService:
         """Generates a token and sends an email verification link."""
         token = AuthService.generate_token()
         user.email_verification_token = token
+        user.email_verification_expires = timezone.now() + timedelta(hours=24) # 24h expiration
         user.email_verified = False
-        user.save(update_fields=['email_verification_token', 'email_verified'])
+        user.save(update_fields=['email_verification_token', 'email_verification_expires', 'email_verified'])
 
         # In production, this should be the frontend URL from settings
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5174')
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'https://imraedu.com')
         verify_link = f"{frontend_url}/verify-email?token={token}"
 
         if settings.DEBUG:
@@ -26,22 +31,32 @@ class AuthService:
             print(f"VERIFICATION LINK: {verify_link}")
             print("="*50 + "\n")
 
-        send_mail(
+        # HTML Email content
+        context = {
+            'user': user,
+            'verify_link': verify_link
+        }
+        html_content = render_to_string('core/emails/verify_email.html', context)
+        text_content = strip_tags(html_content)
+
+        msg = EmailMultiAlternatives(
             subject="Verify your ImraLearning Account",
-            message=f"Welcome to ImraLearning!\n\nPlease verify your email address by clicking the link below:\n{verify_link}\n\nThank you!",
+            body=text_content,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
+            to=[user.email],
         )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send(fail_silently=False)
 
     @staticmethod
     def send_password_reset_email(user: User):
         """Generates a token and sends a password reset link."""
         token = AuthService.generate_token()
         user.password_reset_token = token
-        user.save(update_fields=['password_reset_token'])
+        user.password_reset_expires = timezone.now() + timedelta(hours=1) # 1h expiration
+        user.save(update_fields=['password_reset_token', 'password_reset_expires'])
 
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5174')
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'https://imraedu.com')
         reset_link = f"{frontend_url}/reset-password?token={token}"
 
         if settings.DEBUG:

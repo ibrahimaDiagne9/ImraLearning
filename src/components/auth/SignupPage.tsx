@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { MessageSquare, Zap, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Zap, Eye, EyeOff, Loader2, MailCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { } from 'react-router-dom';
 
 interface SignupPageProps {
     onLogin: () => void;
@@ -9,7 +9,6 @@ interface SignupPageProps {
 
 export const SignupPage = ({ onLogin }: SignupPageProps) => {
     const { register } = useAuth();
-    const navigate = useNavigate();
     const [role, setRole] = useState<'student' | 'teacher'>('student');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -19,6 +18,7 @@ export const SignupPage = ({ onLogin }: SignupPageProps) => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,7 +30,7 @@ export const SignupPage = ({ onLogin }: SignupPageProps) => {
         setError(null);
         try {
             await register({ username, email, password, role });
-            navigate('/');
+            setIsSuccess(true);
         } catch (err: unknown) {
             console.error(err);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,6 +46,31 @@ export const SignupPage = ({ onLogin }: SignupPageProps) => {
         }
     };
 
+    if (isSuccess) {
+        return (
+            <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-[#111827] border border-gray-800 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in fade-in zoom-in duration-500">
+                    <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/30 mx-auto">
+                        <MailCheck className="w-10 h-10 text-blue-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Check your Email</h2>
+                        <p className="text-gray-400 text-sm leading-relaxed">
+                            We've sent a verification link to <span className="text-white font-bold">{email}</span>.
+                            Please check your inbox (and spam folder) to activate your account.
+                        </p>
+                    </div>
+                    <button
+                        onClick={onLogin}
+                        className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98] uppercase tracking-widest text-xs"
+                    >
+                        Back to Login
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-4">
             <div className="flex w-full max-w-5xl bg-[#111827]/50 rounded-3xl overflow-hidden border border-gray-800 shadow-2xl backdrop-blur-sm min-h-[700px]">
@@ -57,12 +82,10 @@ export const SignupPage = ({ onLogin }: SignupPageProps) => {
 
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-blue-600 p-2.5 rounded-xl">
-                                <MessageSquare className="w-6 h-6 text-white" />
-                            </div>
-                            <h1 className="text-2xl font-bold text-white">EduPlatform</h1>
+                            <img src="/logo.png" alt="IMRA Class" className="h-10 w-auto" />
+                            <h1 className="text-2xl font-black text-white tracking-widest uppercase">IMRA Class</h1>
                         </div>
-                        <p className="text-gray-400 pl-14">Start Your Learning Journey</p>
+                        <p className="text-gray-400 pl-14 font-medium">Start Your Learning Journey</p>
                     </div>
 
                     <div className="space-y-6 relative z-10">

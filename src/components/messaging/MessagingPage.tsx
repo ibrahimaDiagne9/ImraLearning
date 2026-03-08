@@ -155,7 +155,7 @@ export const MessagingPage = () => {
                         {/* Messages Area */}
                         <div
                             ref={scrollRef}
-                            className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
+                            className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar"
                         >
                             <div className="flex justify-center mb-8">
                                 <span className="bg-gray-800/50 text-gray-500 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-gray-800">

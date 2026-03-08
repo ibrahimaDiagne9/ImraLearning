@@ -73,7 +73,9 @@ class User(AbstractUser):
     # Custom Additions
     email_verified = models.BooleanField(default=False)
     email_verification_token = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    email_verification_expires = models.DateTimeField(null=True, blank=True)
     password_reset_token = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    password_reset_expires = models.DateTimeField(null=True, blank=True)
     refresh_token = models.CharField(max_length=500, null=True, blank=True)
     two_factor_secret = models.CharField(max_length=255, null=True, blank=True)
     level_num = models.IntegerField(default=1) 

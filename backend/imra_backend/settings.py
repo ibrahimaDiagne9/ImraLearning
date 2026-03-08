@@ -139,9 +139,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Email Configuration (Console for local development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@imralearning.com'
+# Email Configuration
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@imraedu.com')
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -188,9 +193,9 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5174')
+raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'https://imraedu.com')
 CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_cors.split(',') if origin.strip()]
-CORS_ALLOW_ALL_ORIGINS = DEBUG # Only allow all in debug mode
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False') == 'True' # Don't allow all in production
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -207,7 +212,7 @@ CORS_ALLOW_HEADERS = [
 CORS_EXPOSE_HEADERS = ['Content-Range', 'Accept-Ranges']
 
 # CSRF Settings
-raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5174')
+raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://imraedu.com')
 CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_csrf.split(',') if origin.strip()]
 
 # PayDunya Settings
@@ -220,10 +225,10 @@ PAYDUNYA_STORE_NAME = "ImraLearning"
 PAYDUNYA_STORE_TAGLINE = "Empower Your Learning Journey"
 PAYDUNYA_STORE_PHONE = "330000000"
 PAYDUNYA_STORE_POSTAL_ADDRESS = "Dakar, Senegal"
-PAYDUNYA_STORE_LOGO_URL = "https://imralearning.com/logo.png"
+PAYDUNYA_STORE_LOGO_URL = "https://imraedu.com/logo.png"
 
 # Frontend Settings
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5174')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://imraedu.com')
 
 # Upload limits (100MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600

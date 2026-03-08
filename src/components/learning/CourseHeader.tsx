@@ -8,7 +8,7 @@ interface CourseHeaderProps {
 
 export const CourseHeader = ({ course, onContinue, progress }: CourseHeaderProps) => {
     return (
-        <div className="bg-[#0B0F1A] border-b border-white/5 p-8 rounded-3xl mb-8 relative overflow-hidden group">
+        <div className="bg-[#0B0F1A] border-b border-white/5 p-4 md:p-8 rounded-2xl md:rounded-3xl mb-8 relative overflow-hidden group">
             {/* Background Glow */}
             <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/5 blur-[100px] rounded-full pointer-events-none" />
 
@@ -28,8 +28,8 @@ export const CourseHeader = ({ course, onContinue, progress }: CourseHeaderProps
                     </div>
 
                     <div>
-                        <h1 className="text-4xl font-black text-white mb-2 tracking-tight">{course.title}</h1>
-                        <p className="text-gray-400 font-medium text-lg max-w-2xl">{course.subtitle}</p>
+                        <h1 className="text-2xl md:text-4xl font-black text-white mb-2 tracking-tight">{course.title}</h1>
+                        <p className="text-gray-400 font-medium text-base md:text-lg max-w-2xl">{course.subtitle}</p>
                     </div>
 
                     <div className="flex items-center gap-4">

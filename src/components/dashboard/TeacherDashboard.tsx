@@ -24,12 +24,12 @@ export const TeacherDashboard = ({ onOpenModal, onNavigate }: TeacherDashboardPr
         );
     }
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-8">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 md:space-y-8">
             <DashboardHeader />
 
             {/* Upgrade Banner */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/20 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-8 group">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+            <div className="relative overflow-hidden bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/20 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 group">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700 hidden sm:block">
                     <TrendingUp className="w-32 h-32 text-blue-400" />
                 </div>
 
