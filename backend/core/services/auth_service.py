@@ -5,7 +5,10 @@ from django.utils.html import strip_tags
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+import logging
 from ..models import User
+
+logger = logging.getLogger(__name__)
 
 class AuthService:
     @staticmethod
@@ -54,7 +57,11 @@ class AuthService:
         token = AuthService.generate_token()
         user.password_reset_token = token
         user.password_reset_expires = timezone.now() + timedelta(hours=1) # 1h expiration
-        user.save(update_fields=['password_reset_token', 'password_reset_expires'])
+        try:
+            user.save(update_fields=['password_reset_token', 'password_reset_expires'])
+        except Exception as e:
+            logger.error(f"Failed to save password reset token for user {user.email}: {str(e)}")
+            raise
 
         frontend_url = getattr(settings, 'FRONTEND_URL', 'https://imraedu.com')
         reset_link = f"{frontend_url}/reset-password?token={token}"
@@ -64,10 +71,16 @@ class AuthService:
             print(f"PASSWORD RESET LINK: {reset_link}")
             print("="*50 + "\n")
 
-        send_mail(
-            subject="Reset Your ImraLearning Password",
-            message=f"You requested a password reset.\n\nPlease set a new password by clicking the link below:\n{reset_link}\n\nIf you did not request this, please ignore this email.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject="Reset Your ImraLearning Password",
+                message=f"You requested a password reset.\n\nPlease set a new password by clicking the link below:\n{reset_link}\n\nIf you did not request this, please ignore this email.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
+            # We raise so the custom exception handler catches it and returns 500
+            # but now we have it in the logs.
+            raise
