@@ -57,9 +57,8 @@ urlpatterns = [
     path('orders/', business_views.OrderListCreateView.as_view(), name='order-list-create'),
     path('payments/create-intent/', business_views.CreatePaymentIntentView.as_view(), name='payment-create-intent'),
     path('payments/confirm/', business_views.ConfirmPaymentView.as_view(), name='payment-confirm'),
-    path('payments/paydunya/checkout/', business_views.CreatePayDunyaCheckoutView.as_view(), name='paydunya-checkout'),
-    path('payments/paydunya/direct-initiate/', business_views.InitiateDirectPaymentView.as_view(), name='paydunya-direct-initiate'),
-    path('payments/paydunya/ipn/', business_views.PayDunyaIPNView.as_view(), name='paydunya-ipn'),
+    path('payments/bictorys/checkout/', business_views.CreateBictorysCheckoutView.as_view(), name='bictorys-checkout'),
+    path('payments/bictorys/webhook/', business_views.BictorysWebhookView.as_view(), name='bictorys-webhook'),
 
     # Analytics & Reports
     path('analytics/', analytics_views.AnalyticsView.as_view(), name='analytics'),

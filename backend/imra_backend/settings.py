@@ -215,17 +215,10 @@ CORS_EXPOSE_HEADERS = ['Content-Range', 'Accept-Ranges']
 raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://imraedu.com')
 CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_csrf.split(',') if origin.strip()]
 
-# PayDunya Settings
-PAYDUNYA_MASTER_KEY = os.getenv('PAYDUNYA_MASTER_KEY')
-PAYDUNYA_PRIVATE_KEY = os.getenv('PAYDUNYA_PRIVATE_KEY')
-PAYDUNYA_TOKEN = os.getenv('PAYDUNYA_TOKEN')
-
-# Store Configuration
-PAYDUNYA_STORE_NAME = "ImraLearning"
-PAYDUNYA_STORE_TAGLINE = "Empower Your Learning Journey"
-PAYDUNYA_STORE_PHONE = "330000000"
-PAYDUNYA_STORE_POSTAL_ADDRESS = "Dakar, Senegal"
-PAYDUNYA_STORE_LOGO_URL = "https://imraedu.com/logo.png"
+# Bictorys Settings
+BICTORYS_API_KEY = os.getenv('BICTORYS_API_KEY')
+BICTORYS_WEBHOOK_SECRET = os.getenv('BICTORYS_WEBHOOK_SECRET', 'your_webhook_secret_here')
+BICTORYS_IS_TEST = os.getenv('BICTORYS_IS_TEST', 'True') == 'True'
 
 # Frontend Settings
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://imraedu.com')

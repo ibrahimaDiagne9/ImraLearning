@@ -17,8 +17,9 @@ export const CoursePaymentSuccess = () => {
                 const token = searchParams.get('token');
 
                 if (token) {
-                    console.log('Verifying PayDunya token...', token);
-                    await api.post('/payments/paydunya/ipn/', { token });
+                    console.log('Returned from payment gateway with token/trx ID:', token);
+                    // For Bictorys, the backend webhook typically handles the actual status update.
+                    // We don't need to manually post to an IPN route from the frontend success page.
                 }
 
                 // Fetch order details to show which course was purchased

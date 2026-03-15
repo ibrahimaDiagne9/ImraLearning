@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from ..models import Order, Course, Enrollment, Membership, LiveSession, Notification
 from ..serializers import OrderSerializer, LiveSessionSerializer
-from ..services.paydunya_service import PayDunyaService
+from ..services.bictorys_service import BictorysService
 
 logger = logging.getLogger(__name__)
 
@@ -57,47 +57,16 @@ class ConfirmPaymentView(APIView):
         except Order.DoesNotExist:
             return Response({"error": "Order not found"}, status=404)
 
-class CreatePayDunyaCheckoutView(APIView):
+class CreateBictorysCheckoutView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
         course_id = request.data.get('course_id')
-        try:
-            course = Course.objects.get(pk=course_id)
-            order = Order.objects.create(
-                user=request.user,
-                course=course,
-                amount=course.price,
-                status='pending'
-            )
-            
-            paydunya_service = PayDunyaService()
-            token, checkout_url = paydunya_service.create_checkout_invoice(order, request)
-            
-            order.provider_transaction_id = token
-            order.save()
-
-            return Response({
-                "checkout_url": checkout_url,
-                "order_id": order.id,
-                "token": token
-            })
-        except Course.DoesNotExist:
-            return Response({"error": "Course not found"}, status=404)
-        except Exception as e:
-            logger.error(f"PayDunya Checkout Error: {str(e)}")
-            return Response({"error": str(e)}, status=500)
-
-class InitiateDirectPaymentView(APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def post(self, request):
-        course_id = request.data.get('course_id')
+        payment_type = request.data.get('payment_type', 'orange_money') # default or from frontend
         phone_number = request.data.get('phone_number')
-        channel = request.data.get('channel')
 
-        if not course_id or not phone_number or not channel:
-            return Response({"error": "Missing required fields"}, status=400)
+        if not course_id or not phone_number:
+            return Response({"error": "Missing course_id or phone_number"}, status=400)
 
         try:
             course = Course.objects.get(pk=course_id)
@@ -108,95 +77,146 @@ class InitiateDirectPaymentView(APIView):
                 status='pending'
             )
             
-            paydunya_service = PayDunyaService()
-            token, _ = paydunya_service.initiate_direct_payment(order, phone_number, channel, request)
+            bictorys = BictorysService()
+            result = bictorys.initiate_payment(order, payment_type, phone_number, request)
             
-            order.provider_transaction_id = token
-            order.save()
+            if result.get("success"):
+                order.provider_transaction_id = result.get("transaction_id")
+                order.save()
 
-            return Response({
-                "status": "pending",
-                "token": token,
-                "order_id": order.id,
-                "message": "Paiement initié. Veuillez confirmer sur votre téléphone."
-            })
+                return Response({
+                    "status": "pending",
+                    "transaction_id": result.get("transaction_id"),
+                    "order_id": order.id,
+                    "checkout_url": result.get("link"),
+                    "message": result.get("message", "Veuillez confirmer sur votre téléphone.")
+                })
+            else:
+                return Response({"error": result.get("error")}, status=400)
+
         except Course.DoesNotExist:
             return Response({"error": "Course not found"}, status=404)
         except Exception as e:
-            logger.error(f"Direct Payment Error: {str(e)}")
+            logger.error(f"Bictorys Checkout Error: {str(e)}")
             return Response({"error": str(e)}, status=500)
 
 @method_decorator(csrf_exempt, name='dispatch')
-class PayDunyaIPNView(APIView):
+class BictorysWebhookView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        token = request.data.get('token')
-        if not token:
-             return Response({"status": "error", "message": "No token provided"}, status=400)
+        payload = request.data
+        bictorys = BictorysService()
+        
+        verification_data = bictorys.verify_webhook(payload, request.META)
 
-        paydunya_service = PayDunyaService()
-        verification_data = paydunya_service.verify_ipn(token)
+        if verification_data and verification_data['status'] == 'success':
+            ref_type = verification_data.get('ref_type')
+            ref_id = verification_data.get('ref_id')
 
-        if verification_data and verification_data['status'] == 'completed':
-            try:
-                order_id = verification_data['order_id']
-                order = Order.objects.get(pk=order_id)
-                
-                expected_amount = float(order.amount)
-                received_amount = float(verification_data['total_amount'])
-                
-                if abs(expected_amount - received_amount) > 0.01:
-                    logger.error(f"Amount mismatch for Order {order.id}")
-                    return Response({"status": "error", "message": "Amount mismatch"}, status=400)
+            if ref_type == 'ORD':
+                try:
+                    order = Order.objects.get(pk=ref_id)
+                    if order.status != 'completed':
+                        order.status = 'completed'
+                        order.provider_transaction_id = verification_data['transaction_id']
+                        order.save()
+                        
+                        Enrollment.objects.get_or_create(user=order.user, course=order.course)
+                        
+                        Notification.objects.create(
+                            user=order.user,
+                            type='course',
+                            title="Inscription réussie",
+                            description=f"Bienvenue dans le cours {order.course.title}!",
+                            link=f"/learn/{order.course.id}"
+                        )
+                    return Response({"status": "success"})
+                except Order.DoesNotExist:
+                    return Response({"status": "error", "message": "Order not found"}, status=404)
 
-                if order.status != 'completed':
-                    order.status = 'completed'
-                    order.provider_transaction_id = verification_data['transaction_id']
-                    order.save()
+            elif ref_type == 'MBR':
+                try:
+                    from ..models import Payment, Membership
+                    import datetime
                     
-                    Enrollment.objects.get_or_create(user=order.user, course=order.course)
-                    
-                    Notification.objects.create(
-                        user=order.user,
-                        type='course',
-                        title="Inscription réussie",
-                        description=f"Bienvenue dans le cours {order.course.title}!",
-                        link=f"/learn/{order.course.id}"
-                    )
-                
-                return Response({"status": "success"})
-            except Order.DoesNotExist:
-                return Response({"status": "error", "message": "Order not found"}, status=404)
+                    payment = Payment.objects.get(pk=ref_id)
+                    if payment.status != 'completed':
+                        payment.status = 'completed'
+                        payment.transaction_id = verification_data['transaction_id']
+                        payment.save()
+                        
+                        user = payment.user
+                        plan_id = payment.metadata.get("plan_id", "pro")
+                        
+                        membership, created = Membership.objects.get_or_create(user=user)
+                        membership.tier = plan_id
+                        membership.is_active = True
+                        membership.start_date = timezone.now()
+                        membership.end_date = timezone.now() + datetime.timedelta(days=30)
+                        membership.save()
+                        
+                        user.is_pro = True
+                        user.save()
+                        
+                        Notification.objects.create(
+                            user=user,
+                            type='system',
+                            title="Abonnement activé",
+                            description=f"Votre abonnement {plan_id.upper()} a été activé avec succès!",
+                            link="/membership"
+                        )
+                    return Response({"status": "success"})
+                except Exception as e:
+                    logger.error(f"Membership Webhook error {str(e)}")
+                    return Response({"status": "error", "message": "Payment processing error"}, status=500)
         else:
-            return Response({"status": "error", "message": "Verification failed"}, status=400)
+            return Response({"status": "ignored", "message": "Verification failed or status not success"}, status=200)
 
 class UpgradeMembershipView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        import datetime
         plan_id = request.data.get('planId', 'pro').lower()
+        payment_type = request.data.get('paymentType', 'orange_money')
+        phone_number = request.data.get('phoneNumber')
+        
         if plan_id not in ['pro', 'elite']:
             plan_id = 'pro'
             
+        prices = {
+            'pro': 17500,
+            'elite': 60000
+        }
+            
         user = request.user
-        membership, created = Membership.objects.get_or_create(user=user)
-        membership.tier = plan_id
-        membership.is_active = True
-        membership.start_date = timezone.now()
-        membership.end_date = timezone.now() + datetime.timedelta(days=30)
-        membership.save()
         
-        user.is_pro = True
-        user.save()
+        # Create a pending Payment object
+        payment = Payment.objects.create(
+            user=user,
+            amount=prices[plan_id],
+            currency="XOF",
+            provider=PaymentProvider.BICTORYS,
+            status=PaymentStatus.PENDING,
+            metadata={"plan_id": plan_id}
+        )
         
-        return Response({
-            'message': f'Membership upgraded to {plan_id.upper()} successfully',
-            'tier': plan_id,
-            'expires_at': membership.end_date,
-            'is_pro': user.is_pro
-        }, status=200)
+        bictorys = BictorysService()
+        result = bictorys.initiate_membership_payment(payment, plan_id, payment_type, phone_number, request)
+        
+        if result.get("success"):
+            payment.transaction_id = result.get("transaction_id")
+            payment.save()
+
+            return Response({
+                "status": "pending",
+                "transaction_id": result.get("transaction_id"),
+                "payment_id": payment.id,
+                "checkout_url": result.get("link"),
+                "message": result.get("message", "Veuillez confirmer sur votre téléphone.")
+            }, status=200)
+        else:
+            return Response({"error": result.get("error")}, status=400)
 
 class LiveSessionListView(generics.ListCreateAPIView):
     serializer_class = LiveSessionSerializer

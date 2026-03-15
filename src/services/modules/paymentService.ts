@@ -1,16 +1,19 @@
 import apiClient from '../apiClient';
 
-export const upgradeMembership = async (planId: string) => {
-    const response = await apiClient.post('/membership/upgrade/', { planId });
+export const upgradeMembership = async (planId: string, paymentType: string, phoneNumber: string) => {
+    const response = await apiClient.post('/membership/upgrade/', { 
+        planId,
+        paymentType,
+        phoneNumber
+    });
     return response.data;
 };
 
-export const createPayDunyaCheckout = async (courseId: number) => {
-    const response = await apiClient.post('/payments/paydunya/checkout/', { course_id: courseId });
-    return response.data;
-};
-
-export const verifyPayDunyaPayment = async (token: string) => {
-    const response = await apiClient.post('/payments/paydunya/ipn/', { token });
+export const createBictorysCheckout = async (courseId: number, paymentType: string, phoneNumber: string) => {
+    const response = await apiClient.post('/payments/bictorys/checkout/', {
+        course_id: courseId,
+        payment_type: paymentType,
+        phone_number: phoneNumber
+    });
     return response.data;
 };

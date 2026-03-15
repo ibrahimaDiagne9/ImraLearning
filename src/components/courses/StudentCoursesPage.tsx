@@ -80,7 +80,11 @@ export const StudentCoursesPage = () => {
 
         try {
             if (method === 'card') {
-                const response = await api.post('/payments/paydunya/checkout/', { course_id: selectedCourseForPayment.id });
+                const response = await api.post('/payments/bictorys/checkout/', { 
+                    course_id: selectedCourseForPayment.id,
+                    payment_type: 'card', 
+                    phone_number: phoneNumber || '000000000'
+                });
                 if (response.data.checkout_url) {
                     window.location.href = response.data.checkout_url;
                 }
@@ -90,11 +94,11 @@ export const StudentCoursesPage = () => {
             setPaymentStatus('processing');
             setPaymentStatusMessage('Veuillez confirmer le paiement sur votre application Wave/Orange Money.');
 
-            const channel = method === 'wave' ? 'wave-senegal' : 'orange-money-senegal';
-            await api.post('/payments/paydunya/direct-initiate/', {
+            const paymentType = method === 'wave' ? 'wave_money' : 'orange_money';
+            await api.post('/payments/bictorys/checkout/', {
                 course_id: selectedCourseForPayment.id,
-                phone_number: phoneNumber,
-                channel: channel
+                payment_type: paymentType,
+                phone_number: phoneNumber
             });
 
             // Start polling for enrollment status

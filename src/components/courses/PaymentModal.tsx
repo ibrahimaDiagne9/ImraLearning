@@ -6,9 +6,12 @@ interface PaymentModalProps {
     onClose: () => void;
     courseTitle: string;
     amount: number | string;
-    onConfirm: (method: string, phoneNumber?: string) => Promise<void>;
+    onConfirm?: (method: string, phoneNumber?: string) => Promise<void>;
     status?: 'idle' | 'processing' | 'success';
     statusMessage?: string;
+    isMembership?: boolean;
+    planId?: string;
+    onMembershipSuccess?: () => void;
 }
 
 export const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -18,11 +21,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     amount,
     onConfirm,
     status = 'idle',
-    statusMessage
+    statusMessage,
+    isMembership = false,
+    planId,
+    onMembershipSuccess
 }) => {
     const [selectedMethod, setSelectedMethod] = useState<'wave' | 'card' | 'orange'>('wave');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Internal state if we are handling the request ourselves instead of lifting state
+    const [internalStatus, setInternalStatus] = useState<'idle' | 'processing' | 'success'>(status);
+    const [internalMessage, setInternalMessage] = useState<string | undefined>(statusMessage);
+
+    const displayStatus = isMembership ? internalStatus : status;
+    const displayMessage = isMembership ? internalMessage : statusMessage;
+
+    // Sync external status
+    React.useEffect(() => {
+        setInternalStatus(status);
+        setInternalMessage(statusMessage);
+    }, [status, statusMessage]);
 
     if (!isOpen) return null;
 
@@ -35,7 +54,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </div>
                     <div className="space-y-2">
                         <h2 className="text-3xl font-black text-white">Payment Successful!</h2>
-                        <p className="text-gray-400 font-medium">{statusMessage || 'Your enrollment is confirmed. Enjoy your learning journey!'}</p>
+                        <p className="text-gray-400 font-medium">{displayMessage || 'Your enrollment is confirmed. Enjoy your learning journey!'}</p>
                     </div>
                     <button
                         onClick={onClose}
@@ -51,9 +70,46 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     const handlePay = async () => {
         setIsSubmitting(true);
         try {
-            await onConfirm(selectedMethod, phoneNumber);
-        } catch (error) {
+            if (isMembership && planId) {
+                // Handle local membership logic directly
+                setInternalStatus('processing');
+                setInternalMessage('Veuillez confirmer le paiement sur votre application Wave/Orange Money.');
+                
+                const { upgradeMembership } = await import('../../services/modules/paymentService');
+                const paymentType = selectedMethod === 'wave' ? 'wave_money' : (selectedMethod === 'card' ? 'card' : 'orange_money');
+                
+                const response = await upgradeMembership(planId, paymentType, phoneNumber || '000000000');
+                
+                if (paymentType === 'card' && response.checkout_url) {
+                    window.location.href = response.checkout_url;
+                    return;
+                }
+
+                const { default: apiClient } = await import('../../services/apiClient');
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const checkResp = await apiClient.get('/auth/user/');
+                        if (checkResp.data.is_pro) {
+                            clearInterval(pollInterval);
+                            setInternalStatus('success');
+                            if (onMembershipSuccess) onMembershipSuccess();
+                        }
+                    } catch (e) {
+                        console.error("Polling error", e);
+                    }
+                }, 3000);
+                
+                // Set timeout for polling
+                setTimeout(() => clearInterval(pollInterval), 60000);
+                
+            } else if (onConfirm) {
+                await onConfirm(selectedMethod, phoneNumber);
+            }
+        } catch (error: any) {
             console.error(error);
+            setInternalStatus('idle');
+            // Assuming you have a toast or alert system here to show error.
+            alert(error.response?.data?.error || "Payment initialization failed");
         } finally {
             setIsSubmitting(false);
         }
@@ -76,7 +132,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     </button>
                 </div>
 
-                {status === 'processing' ? (
+                {displayStatus === 'processing' ? (
                     <div className="p-12 text-center space-y-8 min-h-[400px] flex flex-col justify-center">
                         <div className="relative w-20 h-20 mx-auto">
                             <div className="absolute inset-0 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
@@ -85,7 +141,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                         <div className="space-y-3">
                             <h3 className="text-xl font-bold text-white">Waiting for confirmation</h3>
                             <p className="text-gray-400 text-sm leading-relaxed px-8">
-                                {statusMessage || "Please confirm the transaction on your phone. We'll automatically update once processed."}
+                                {displayMessage || "Please confirm the transaction on your phone. We'll automatically update once processed."}
                             </p>
                         </div>
                     </div>
@@ -131,7 +187,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                                         </label>
                                         <div className="relative group">
                                             <input
-                                                type="text"
+                                                type="tel"
+                                                autoComplete="tel"
                                                 value={phoneNumber}
                                                 onChange={(e) => setPhoneNumber(e.target.value)}
                                                 placeholder="+221 77 123 45 67"
