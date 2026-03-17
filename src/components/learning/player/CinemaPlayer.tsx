@@ -119,6 +119,7 @@ export const CinemaPlayer = ({
                         forceVideo: true,
                         attributes: {
                             controlsList: 'nodownload',
+                            crossOrigin: 'anonymous',
                             style: { width: '100%', height: '100%', objectFit: 'contain' }
                         },
                     },

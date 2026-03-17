@@ -19,25 +19,25 @@ export const getVideoUrl = (video_url?: string, video_file?: string): string | n
         // Ignore invalid URLs
     }
 
-    // If it's still an absolute HTTP URL from a cloud provider (e.g. S3), use it
-    if (path.startsWith('http')) return path;
+    // Handle absolute URLs (including those that need protocol upgrading)
+    if (path.startsWith('http')) {
+        if (path.includes('imraedu.com') && path.startsWith('http:')) {
+            return path.replace('http:', 'https:');
+        }
+        return path;
+    }
 
     // Resolve relative media paths using the current API environment URL
     let baseUrl = import.meta.env.VITE_API_URL || 'https://api.imraedu.com/api';
     baseUrl = baseUrl.replace(/\/api\/?$/, ''); // get base domain
 
-    // Force HTTPS for production API URLs if they come back as http
+    // Force HTTPS for production base URL
     if (baseUrl.includes('imraedu.com') && baseUrl.startsWith('http:')) {
         baseUrl = baseUrl.replace('http:', 'https:');
     }
 
     let cleanPath = path.startsWith('/') ? path : `/${path}`;
     
-    // Safety check: if path already contains the baseUrl or domain, don't prefix it again
-    if (cleanPath.includes('imraedu.com') || cleanPath.includes('localhost')) {
-        return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
-    }
-
     if (!cleanPath.startsWith('/media/')) {
         cleanPath = `/media${cleanPath}`;
     }

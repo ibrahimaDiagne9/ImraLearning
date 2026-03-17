@@ -42,6 +42,10 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 
+# Security Headers
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+X_FRAME_OPTIONS = 'SAMEORIGIN' # Allow same-origin iframing if needed for player
+
 
 # Application definition
 
@@ -199,7 +203,7 @@ SIMPLE_JWT = {
 }
 
 # CORS Settings
-raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'https://imraedu.com')
+raw_cors = os.getenv('CORS_ALLOWED_ORIGINS', 'https://imraedu.com,https://www.imraedu.com')
 CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in raw_cors.split(',') if origin.strip()]
 CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False') == 'True' # Don't allow all in production
 CORS_ALLOW_CREDENTIALS = True
