@@ -19,7 +19,7 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
     onUpdate,
     onVideoUpload
 }) => {
-    const videoSource = getVideoUrl(lesson.video_url, lesson.video_file);
+    const videoSource = getVideoUrl(lesson);
 
     return (
         <section className="space-y-8">

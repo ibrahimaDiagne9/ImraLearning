@@ -34,6 +34,7 @@ export interface Lesson {
     lesson_type: LessonType;
     video_url?: string;
     video_file?: string;
+    video_file_url?: string;
     content?: string;
     summary?: string;
     duration?: string;
