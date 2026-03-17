@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import api from '../../services/api';
 import { useNotifications } from '../../context/NotificationContext';
+import { isAxiosError } from 'axios';
 
 interface CreateCourseModalProps {
     isOpen: boolean;
@@ -49,6 +50,19 @@ export const CreateCourseModal = ({ isOpen, onClose }: CreateCourseModalProps) =
             return;
         }
 
+        const priceNum = parseFloat(formData.price);
+        const durationNum = parseFloat(formData.duration_hours);
+
+        if (isNaN(priceNum) || priceNum < 0) {
+            addNotification({ type: 'system', title: 'Error', description: 'Price must be zero or a positive number.' });
+            return;
+        }
+
+        if (isNaN(durationNum) || durationNum < 0) {
+            addNotification({ type: 'system', title: 'Error', description: 'Duration must be zero or a positive number.' });
+            return;
+        }
+
         setIsLoading(true);
         try {
             const data = new FormData();
@@ -72,7 +86,18 @@ export const CreateCourseModal = ({ isOpen, onClose }: CreateCourseModalProps) =
             navigate(`/studio/${response.data.id}`);
         } catch (error) {
             console.error('Failed to create course', error);
-            addNotification({ type: 'system', title: 'Error', description: 'Failed to create course. Please try again.' });
+            
+            let errorMsg = 'Failed to create course. Please try again.';
+            if (isAxiosError(error) && error.response?.data) {
+                // Assuming Django REST Framework error structure
+                const data = error.response.data;
+                const messages = Object.values(data).flat();
+                if (messages.length > 0) {
+                    errorMsg = messages.join(' ');
+                }
+            }
+            
+            addNotification({ type: 'system', title: 'Error', description: errorMsg });
         } finally {
             setIsLoading(false);
         }

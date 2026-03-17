@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Zap, Eye, EyeOff, Loader2, MailCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 
 interface SignupPageProps {
     onLogin: () => void;
@@ -33,9 +33,8 @@ export const SignupPage = ({ onLogin }: SignupPageProps) => {
             setIsSuccess(true);
         } catch (err: unknown) {
             console.error(err);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const data = (err as any).response?.data;
-            if (data) {
+            if (isAxiosError(err) && err.response?.data) {
+                const data = err.response.data;
                 const message = Object.values(data).flat().join(' ');
                 setError(message);
             } else {

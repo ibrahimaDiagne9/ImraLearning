@@ -30,6 +30,11 @@ class ToggleLessonCompletionView(APIView):
     def post(self, request, pk):
         try:
             lesson = Lesson.objects.get(pk=pk)
+            
+            # Security Check: Ensure user is enrolled in the course
+            if not Enrollment.objects.filter(user=request.user, course=lesson.section.course).exists():
+                return Response({'error': 'You must be enrolled to access this lesson'}, status=status.HTTP_403_FORBIDDEN)
+
             progress, created = LessonProgress.objects.get_or_create(
                 user=request.user,
                 lesson=lesson
@@ -55,6 +60,11 @@ class SubmitQuizView(APIView):
     def post(self, request, pk):
         try:
             quiz = Quiz.objects.get(pk=pk)
+            
+            # Security Check: Ensure user is enrolled in the course
+            if not Enrollment.objects.filter(user=request.user, course=quiz.lesson.section.course).exists():
+                return Response({'error': 'You must be enrolled to take this quiz'}, status=status.HTTP_403_FORBIDDEN)
+                
             answers = request.data.get('answers', {})
             gamification_result = {}
             
@@ -112,7 +122,8 @@ class SubmitQuizView(APIView):
             return Response({"error": "Quiz not found"}, status=404)
 
 class AddXPView(APIView):
-    permission_classes = (permissions.IsAuthenticated,)
+    # Security Fix: Only allow admins to manually give out XP
+    permission_classes = (permissions.IsAdminUser,)
 
     def post(self, request):
         xp = request.data.get('xp', 0)

@@ -26,7 +26,18 @@ export const getVideoUrl = (video_url?: string, video_file?: string): string | n
     let baseUrl = import.meta.env.VITE_API_URL || 'https://api.imraedu.com/api';
     baseUrl = baseUrl.replace(/\/api\/?$/, ''); // get base domain
 
+    // Force HTTPS for production API URLs if they come back as http
+    if (baseUrl.includes('imraedu.com') && baseUrl.startsWith('http:')) {
+        baseUrl = baseUrl.replace('http:', 'https:');
+    }
+
     let cleanPath = path.startsWith('/') ? path : `/${path}`;
+    
+    // Safety check: if path already contains the baseUrl or domain, don't prefix it again
+    if (cleanPath.includes('imraedu.com') || cleanPath.includes('localhost')) {
+        return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+    }
+
     if (!cleanPath.startsWith('/media/')) {
         cleanPath = `/media${cleanPath}`;
     }

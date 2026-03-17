@@ -37,6 +37,11 @@ INTERNAL_IPS = [
     '127.0.0.1',
 ]
 
+# Security settings for proxy (Railway/Cloudflare)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
 
 # Application definition
 
@@ -153,7 +158,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# In production on Railway, we mount the volume to /app/media
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', BASE_DIR / 'media')
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.User'
