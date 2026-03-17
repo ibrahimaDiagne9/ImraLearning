@@ -66,16 +66,24 @@ export const CinemaPlayer = ({
         return () => clearTimeout(timer);
     }, [lesson?.id, setPlaybackError, setIsLoading, setPlayed]);
 
-    // Sync native video props since they aren't fully supported declaratively
+    // Sync native video props safely
     useEffect(() => {
-        const videoElement = playerRef.current;
-        if (videoElement && videoElement.tagName === 'VIDEO') {
+        if (!playerRef.current) return;
+        
+        // Get the actual video element if possible
+        const internal = playerRef.current.getInternalPlayer();
+        const videoElement = (internal && internal.tagName === 'VIDEO') ? internal : null;
+
+        if (videoElement) {
             videoElement.volume = volume;
             videoElement.muted = muted;
             videoElement.playbackRate = playbackRate;
 
             if (isPlaying && videoElement.paused) {
-                videoElement.play().catch((e: any) => console.error("Play failed:", e));
+                videoElement.play().catch((e: any) => {
+                    console.error("Play failed:", e);
+                    // Silently ignore autoplay blocks, handles them via UI
+                });
             } else if (!isPlaying && !videoElement.paused) {
                 videoElement.pause();
             }
@@ -83,7 +91,7 @@ export const CinemaPlayer = ({
     }, [volume, muted, playbackRate, isPlaying, playerRef]);
 
     if (!lesson) return null;
-    const videoUrl = getVideoUrl(lesson.video_url, lesson.video_file);
+    const videoUrl = getVideoUrl(lesson);
 
     if (!videoUrl) {
         return (
@@ -104,6 +112,7 @@ export const CinemaPlayer = ({
     return (
         <div className="group relative w-full h-full bg-black overflow-hidden select-none">
             <ReactPlayer
+                key={lesson.id}
                 ref={playerRef}
                 url={videoUrl}
                 width="100%"
@@ -166,13 +175,23 @@ export const CinemaPlayer = ({
                         <X className="w-8 h-8 text-red-500" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">Playback Failed</h3>
-                    <p className="text-gray-400 max-w-xs mx-auto mb-8">{playbackError}</p>
-                    <p className="text-xs text-gray-500 mb-4 font-mono break-all">{videoUrl}</p>
+                    <p className="text-gray-400 max-w-xs mx-auto mb-8 font-medium">{playbackError}</p>
+                    
+                    {/* Diagnostic Info */}
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-8 max-w-lg mx-auto text-left">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Diagnostic Data</p>
+                        <div className="space-y-1 font-mono text-[10px] text-gray-400">
+                             <p><span className="text-blue-500">SOURCE:</span> {videoUrl}</p>
+                             <p><span className="text-blue-500">TYPE:</span> {lesson.lesson_type}</p>
+                             <p><span className="text-blue-500">PROTO:</span> {window.location.protocol}</p>
+                        </div>
+                    </div>
+
                     <button
                         onClick={() => { setPlaybackError(null); setIsLoading(true); setIsPlaying(true); }}
                         className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all relative z-30"
                     >
-                        Try Reconnect
+                        Retry Playback
                     </button>
                 </div>
             )}

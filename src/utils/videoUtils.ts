@@ -1,5 +1,8 @@
-export const getVideoUrl = (video_url?: string, video_file?: string): string | null => {
-    let path = video_url || video_file;
+export const getVideoUrl = (lesson: { video_url?: string; video_file?: string; video_file_url?: string }): string | null => {
+    if (!lesson) return null;
+    
+    // Prioritize absolute video_file_url from backend if available
+    let path = lesson.video_file_url || lesson.video_url || lesson.video_file;
     if (!path) return null;
 
     // Handle explicit external URLs (YouTube, Vimeo, blobs)
@@ -7,19 +10,7 @@ export const getVideoUrl = (video_url?: string, video_file?: string): string | n
         return path;
     }
 
-    // Strip hardcoded localhost origin if it was saved to DB by mistake
-    try {
-        if (path.startsWith('http')) {
-            const urlObj = new URL(path);
-            if (urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1') {
-                path = urlObj.pathname;
-            }
-        }
-    } catch (e) {
-        // Ignore invalid URLs
-    }
-
-    // Handle absolute URLs (including those that need protocol upgrading)
+    // Force HTTPS for any absolute URLs pointing to our domain
     if (path.startsWith('http')) {
         if (path.includes('imraedu.com') && path.startsWith('http:')) {
             return path.replace('http:', 'https:');
