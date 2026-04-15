@@ -44,7 +44,7 @@ export const NotificationsPopup = ({ onClose }: NotificationsPopupProps) => {
     };
 
     return (
-        <div className="absolute top-full right-0 mt-2 w-[400px] bg-[#0B0F1A] border border-gray-800 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="absolute top-full -right-2 sm:right-0 mt-2 w-[calc(100vw-24px)] max-w-[400px] bg-[#0B0F1A] border border-gray-800 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
             <header className="p-5 border-b border-gray-800 flex items-center justify-between bg-[#0B0F1A]/80 backdrop-blur-xl">
                 <div>
                     <h3 className="font-black text-white uppercase tracking-tighter text-sm">Activity Feed</h3>

@@ -57,10 +57,7 @@ export const Navbar = ({ onLogout }: NavbarProps) => {
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-3">
                     <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                        <img src="/logo.png" alt="IMRA Class" className="h-10 w-auto" />
-                        <span className="text-xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent tracking-tighter uppercase whitespace-nowrap">
-                            IMRA Class
-                        </span>
+                        <img src="/logo.png" alt="IMRAEDU" className="h-8 w-auto" />
                     </Link>
                 </div>
 

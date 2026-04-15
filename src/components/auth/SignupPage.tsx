@@ -79,12 +79,9 @@ export const SignupPage = ({ onLogin }: SignupPageProps) => {
                     <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                     <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
 
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <img src="/logo.png" alt="IMRA Class" className="h-10 w-auto" />
-                            <h1 className="text-2xl font-black text-white tracking-widest uppercase">IMRA Class</h1>
-                        </div>
-                        <p className="text-gray-400 pl-14 font-medium">Start Your Learning Journey</p>
+                    <div className="flex flex-col gap-1">
+                        <img src="/image/IMRAEDU.png" alt="IMRAEDU" className="h-24 w-auto self-start mb-6" />
+                        <p className="text-gray-400 font-medium">Start Your Learning Journey</p>
                     </div>
 
                     <div className="space-y-6 relative z-10">

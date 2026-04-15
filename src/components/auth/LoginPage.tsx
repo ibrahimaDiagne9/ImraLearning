@@ -42,14 +42,9 @@ export const LoginPage = ({ onSignup }: LoginPageProps) => {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
 
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-blue-600 p-2.5 rounded-xl">
-                                <MessageSquare className="w-6 h-6 text-white" />
-                            </div>
-                            <h1 className="text-2xl font-bold text-white">EduPlatform</h1>
-                        </div>
-                        <p className="text-gray-400 pl-14">Interactive Community Learning</p>
+                    <div className="flex flex-col gap-1">
+                        <img src="/image/IMRAEDU.png" alt="IMRAEDU" className="h-24 w-auto self-start mb-4" />
+                        <p className="text-gray-400 font-medium">Interactive Community Learning</p>
                     </div>
 
                     <div className="space-y-6">

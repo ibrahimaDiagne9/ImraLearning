@@ -29,7 +29,7 @@ export const CourseCard = ({ id, title, description, icon: Icon, thumbnail, stat
     };
 
     return (
-        <div className="bg-surface border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors flex flex-col relative">
+        <div className="group bg-surface border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors flex flex-col relative">
             {status === 'draft' && (
                 <div className="absolute top-3 left-3 bg-gray-700 text-gray-300 text-xs font-bold px-2 py-1 rounded z-10">
                     Draft
