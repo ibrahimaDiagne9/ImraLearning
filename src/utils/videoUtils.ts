@@ -20,6 +20,12 @@ export const getVideoUrl = (lesson: { video_url?: string; video_file?: string; v
 
     // Resolve relative media paths using the current API environment URL
     let baseUrl = import.meta.env.VITE_API_URL || 'https://api.imraedu.com/api';
+    
+    // Force HTTPS for production
+    if (baseUrl.startsWith('http:')) {
+        baseUrl = baseUrl.replace('http:', 'https:');
+    }
+
     // Remove /api or /api/ suffix to get the root domain
     baseUrl = baseUrl.replace(/\/api\/?$/, ''); 
 
