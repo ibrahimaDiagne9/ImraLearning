@@ -187,6 +187,7 @@ export const CinemaPlayer = ({
                     width="100%"
                     height="100%"
                     playing={isPlaying}
+                    controls={true}
                     volume={volume}
                     muted={muted}
                     playbackRate={playbackRate}
@@ -194,7 +195,7 @@ export const CinemaPlayer = ({
                     playsinline
                     config={{
                         youtube: {
-                            playerVars: { showinfo: 0, rel: 0, modestbranding: 1 }
+                            playerVars: { showinfo: 0, rel: 0, modestbranding: 1, origin: typeof window !== 'undefined' ? window.location.origin : '' }
                         }
                     } as any}
                     onBuffer={() => setIsLoading(true)}
@@ -266,8 +267,9 @@ export const CinemaPlayer = ({
                 </div>
             )}
 
-            {/* ── Video Controls ────────────────────────────────────────────── */}
-            <VideoControls
+            {/* ── Video Controls (Native Only) ────────────────────────────── */}
+            {!isExternalPlayer && (
+                <VideoControls
                 isPlaying={isPlaying}
                 duration={duration}
                 played={played}
@@ -292,6 +294,7 @@ export const CinemaPlayer = ({
                 onPlaybackRateChange={setPlaybackRate}
                 title={lesson.title}
             />
+            )}
         </div>
     );
 };
