@@ -73,7 +73,6 @@ INSTALLED_APPS = [
     
     # Internal apps
     'core',
-    'debug_toolbar',
 ]
 
 MIDDLEWARE = [
@@ -81,7 +80,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -244,3 +242,11 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://imraedu.com')
 # Upload limits (100MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600
+
+# Allow CORS on media files so the frontend can stream videos
+CORS_URLS_REGEX = r'^/(api|media)/.*$'
+
+# Debug toolbar - only in local development
+if DEBUG:
+    INSTALLED_APPS += ['debug_toolbar']
+    MIDDLEWARE.insert(3, 'debug_toolbar.middleware.DebugToolbarMiddleware')
