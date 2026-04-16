@@ -20,20 +20,20 @@ export const getVideoUrl = (lesson: { video_url?: string; video_file?: string; v
 
     // Resolve relative media paths using the current API environment URL
     let baseUrl = import.meta.env.VITE_API_URL || 'https://api.imraedu.com/api';
-    baseUrl = baseUrl.replace(/\/api\/?$/, ''); // get base domain
+    // Remove /api or /api/ suffix to get the root domain
+    baseUrl = baseUrl.replace(/\/api\/?$/, ''); 
 
-    // Force HTTPS for production base URL
-    if (baseUrl.includes('imraedu.com') && baseUrl.startsWith('http:')) {
-        baseUrl = baseUrl.replace('http:', 'https:');
-    }
-
+    // Ensure the path is clean (no double slashes when joining)
     let cleanPath = path.startsWith('/') ? path : `/${path}`;
     
+    // Ensure the path references /media/
     if (!cleanPath.startsWith('/media/')) {
         cleanPath = `/media${cleanPath}`;
     }
 
-    return `${baseUrl}${cleanPath}`;
+    // Combine and remove any potential double slashes in the middle
+    const fullUrl = `${baseUrl}${cleanPath}`.replace(/([^:]\/)\/+/g, "$1");
+    return fullUrl;
 };
 
 export const getVideoSourceType = (url: string) => {

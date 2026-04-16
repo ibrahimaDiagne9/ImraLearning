@@ -11,6 +11,8 @@ from django.urls import re_path
 from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
+from core.views.media_views import SecureMediaView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -21,15 +23,10 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    
+    # Custom Media Serving (Supports Range Requests and CORS)
+    re_path(r'^media/(?P<path>.*)$', SecureMediaView.as_view(), name='secure_media'),
 ]
-
-# Serve media files in production (when DEBUG=False)
-if not settings.DEBUG:
-    urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve, {
-            'document_root': settings.MEDIA_ROOT,
-        }),
-    ]
 
 if settings.DEBUG:
     import debug_toolbar

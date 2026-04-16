@@ -157,7 +157,16 @@ export const CinemaPlayer = ({
                 onEnded={onEnded}
                 onError={(e: any) => {
                     console.error("Player Error:", e);
-                    setPlaybackError("Failed to play video. Source might be unavailable or format unsupported.");
+                    
+                    let errorDetail = "";
+                    if (playerRef.current && typeof playerRef.current.getInternalPlayer === 'function') {
+                        const internal = playerRef.current.getInternalPlayer();
+                        if (internal && internal.error) {
+                            errorDetail = ` (Browser Error Code: ${internal.error.code})`;
+                        }
+                    }
+                    
+                    setPlaybackError(`Failed to play video. Source might be unavailable or format unsupported.${errorDetail}`);
                 }}
             />
             )}
@@ -186,6 +195,16 @@ export const CinemaPlayer = ({
                              <p><span className="text-blue-500">SOURCE:</span> {videoUrl}</p>
                              <p><span className="text-blue-500">TYPE:</span> {lesson.lesson_type}</p>
                              <p><span className="text-blue-500">PROTO:</span> {window.location.protocol}</p>
+                             <div className="pt-2">
+                                <a 
+                                    href={videoUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-blue-400 hover:text-blue-300 underline font-bold"
+                                >
+                                    Open Direct Link in New Tab
+                                </a>
+                             </div>
                         </div>
                     </div>
 
