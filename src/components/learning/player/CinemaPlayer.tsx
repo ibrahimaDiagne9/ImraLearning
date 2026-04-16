@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
-import { Sparkles, Info, X } from 'lucide-react';
+import { Sparkles, Info, X, ExternalLink } from 'lucide-react';
 import { VideoControls } from '../VideoControls';
-import { getVideoUrl } from '../../../utils/videoUtils';
+import { getVideoUrl, getVideoSourceType } from '../../../utils/videoUtils';
 import type { Lesson } from '../../../hooks/useLessonPlayer';
 
 interface CinemaPlayerProps {
@@ -51,54 +51,77 @@ export const CinemaPlayer = ({
     onEnded,
     playerRef
 }: CinemaPlayerProps) => {
+    const nativeVideoRef = useRef<HTMLVideoElement>(null);
+    
+    if (!lesson) return null;
+    const videoUrl = getVideoUrl(lesson);
+    const videoType = videoUrl ? getVideoSourceType(videoUrl) : 'file';
+    const isExternalPlayer = videoType === 'youtube' || videoType === 'vimeo';
+
+    console.log('🎥 [CinemaPlayer] URL:', videoUrl, '| Type:', videoType);
+
+    // ─── Native video controls ─────────────────────────────────────────────
     useEffect(() => {
-        if (!lesson) return;
+        const vid = nativeVideoRef.current;
+        if (!vid || isExternalPlayer) return;
+        vid.volume = volume;
+        vid.muted = muted;
+        vid.playbackRate = playbackRate;
+    }, [volume, muted, playbackRate, isExternalPlayer]);
+
+    useEffect(() => {
+        const vid = nativeVideoRef.current;
+        if (!vid || isExternalPlayer) return;
+        if (isPlaying) {
+            vid.play().catch(() => setIsPlaying(false));
+        } else {
+            vid.pause();
+        }
+    }, [isPlaying, isExternalPlayer, setIsPlaying]);
+
+    // Reset on lesson change
+    useEffect(() => {
         setPlaybackError(null);
         setIsLoading(true);
         setPlayed(0);
-
-        // Safety timeout: if video doesn't load in 10s, release the UI so clicks can reach the player
-        const timer = setTimeout(() => {
-            setIsLoading(false);
-        }, 10000);
-
+        const timer = setTimeout(() => setIsLoading(false), 15000);
         return () => clearTimeout(timer);
     }, [lesson?.id, setPlaybackError, setIsLoading, setPlayed]);
 
-    // Sync native video props safely
+    // Expose native video ref through playerRef for seek
     useEffect(() => {
-        if (!playerRef.current) return;
-        
-        // Get the actual video element if possible
-        const internal = typeof playerRef.current.getInternalPlayer === 'function' 
-            ? playerRef.current.getInternalPlayer() 
-            : null;
-        const videoElement = (internal && internal.tagName === 'VIDEO') ? internal : null;
-
-        if (videoElement) {
-            videoElement.volume = volume;
-            videoElement.muted = muted;
-            videoElement.playbackRate = playbackRate;
-
-            if (isPlaying && videoElement.paused) {
-                videoElement.play().catch((e: any) => {
-                    console.error("Play failed:", e);
-                    // Silently ignore autoplay blocks, handles them via UI
-                });
-            } else if (!isPlaying && !videoElement.paused) {
-                videoElement.pause();
-            }
+        if (nativeVideoRef.current && !isExternalPlayer) {
+            playerRef.current = {
+                seekTo: (fraction: number) => {
+                    const vid = nativeVideoRef.current;
+                    if (vid && vid.duration) vid.currentTime = fraction * vid.duration;
+                },
+                getInternalPlayer: () => nativeVideoRef.current,
+            };
         }
-    }, [volume, muted, playbackRate, isPlaying, playerRef]);
+    }, [isExternalPlayer, playerRef]);
 
-    if (!lesson) return null;
-    const videoUrl = getVideoUrl(lesson);
-    
-    // Senior Debug: Log the resolved URL to help identify production config issues
-    if (process.env.NODE_ENV !== 'production' || true) {
-        console.log("🎥 [CinemaPlayer] Resolved Video URL:", videoUrl);
-    }
+    const handleNativeTimeUpdate = useCallback(() => {
+        const vid = nativeVideoRef.current;
+        if (!vid || !vid.duration) return;
+        setPlayed(vid.currentTime / vid.duration);
+    }, [setPlayed]);
 
+    const handleNativeError = useCallback(() => {
+        const vid = nativeVideoRef.current;
+        let code = vid?.error?.code;
+        const msgs: Record<number, string> = {
+            1: 'Playback aborted (Code 1)',
+            2: 'Network error while loading (Code 2)',
+            3: 'Decode failed — video format may not be supported (Code 3)',
+            4: 'Video source not found or format unsupported (Code 4)',
+        };
+        const detail = code ? msgs[code] || `Unknown error (Code ${code})` : 'Unknown error';
+        setPlaybackError(detail);
+        setIsLoading(false);
+    }, [setPlaybackError, setIsLoading]);
+
+    // ─── No video ─────────────────────────────────────────────────────────
     if (!videoUrl) {
         return (
             <div className="flex flex-col items-center justify-center text-center p-20 space-y-4 bg-[#0A0D14] h-full">
@@ -111,71 +134,69 @@ export const CinemaPlayer = ({
         );
     }
 
-    // Instead of returning early on error, render over the player so we can retry properly
-
-
-
     return (
         <div className="group relative w-full h-full bg-black overflow-hidden select-none">
-            {lesson && (
-                <ReactPlayer
-                    key={lesson.id}
-                ref={playerRef}
-                url={videoUrl}
-                width="100%"
-                height="100%"
-                playing={isPlaying}
-                volume={volume}
-                muted={muted}
-                playbackRate={playbackRate}
-                style={{ position: 'absolute', top: 0, left: 0 }}
-                playsinline
-                config={{
-                    file: {
-                        forceVideo: true,
-                        attributes: {
-                            controlsList: 'nodownload',
-                            style: { width: '100%', height: '100%', objectFit: 'contain' }
-                        },
-                    },
-                    youtube: {
-                        playerVars: { showinfo: 0, rel: 0, modestbranding: 1 }
-                    }
-                } as any}
-                onBuffer={() => setIsLoading(true)}
-                onBufferEnd={() => setIsLoading(false)}
-                onReady={() => {
-                    setIsLoading(false);
-                    // Sync initial state if needed
-                    if (playerRef.current && typeof playerRef.current.getInternalPlayer === 'function') {
-                        const internal = playerRef.current.getInternalPlayer();
-                        if (internal && internal.tagName === 'VIDEO') {
-                            internal.volume = volume;
-                            internal.muted = muted;
-                        }
-                    }
-                }}
-                onDuration={setDuration}
-                onProgress={(p: any) => setPlayed(p.played)}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={onEnded}
-                onError={(e: any) => {
-                    console.error("Player Error:", e);
-                    
-                    let errorDetail = "";
-                    if (playerRef.current && typeof playerRef.current.getInternalPlayer === 'function') {
-                        const internal = playerRef.current.getInternalPlayer();
-                        if (internal && internal.error) {
-                            errorDetail = ` (Browser Error Code: ${internal.error.code})`;
-                        }
-                    }
-                    
-                    setPlaybackError(`Failed to play video. Source might be unavailable or format unsupported.${errorDetail}`);
-                }}
-            />
+
+            {/* ── Native <video> for self-hosted MP4 files ─────────────────── */}
+            {!isExternalPlayer && (
+                <video
+                    ref={nativeVideoRef}
+                    key={videoUrl}
+                    src={videoUrl}
+                    crossOrigin="anonymous"
+                    playsInline
+                    preload="metadata"
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                    onLoadedMetadata={() => {
+                        const vid = nativeVideoRef.current;
+                        if (vid) setDuration(vid.duration);
+                        setIsLoading(false);
+                    }}
+                    onCanPlay={() => setIsLoading(false)}
+                    onWaiting={() => setIsLoading(true)}
+                    onPlaying={() => { setIsLoading(false); setIsPlaying(true); }}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={onEnded}
+                    onTimeUpdate={handleNativeTimeUpdate}
+                    onError={handleNativeError}
+                />
             )}
 
+            {/* ── ReactPlayer for YouTube / Vimeo ──────────────────────────── */}
+            {isExternalPlayer && (
+                <ReactPlayer
+                    key={lesson.id}
+                    ref={playerRef}
+                    url={videoUrl}
+                    width="100%"
+                    height="100%"
+                    playing={isPlaying}
+                    volume={volume}
+                    muted={muted}
+                    playbackRate={playbackRate}
+                    style={{ position: 'absolute', top: 0, left: 0 }}
+                    playsinline
+                    config={{
+                        youtube: {
+                            playerVars: { showinfo: 0, rel: 0, modestbranding: 1 }
+                        }
+                    } as any}
+                    onBuffer={() => setIsLoading(true)}
+                    onBufferEnd={() => setIsLoading(false)}
+                    onReady={() => setIsLoading(false)}
+                    onDuration={setDuration}
+                    onProgress={(p: any) => setPlayed(p.played)}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={onEnded}
+                    onError={(e: any) => {
+                        console.error('ReactPlayer Error:', e);
+                        setPlaybackError('External video failed to load. Check URL or network.');
+                    }}
+                />
+            )}
+
+            {/* ── Loading Spinner ───────────────────────────────────────────── */}
             {isLoading && !playbackError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm transition-all z-10 pointer-events-none">
                     <div className="relative">
@@ -185,43 +206,45 @@ export const CinemaPlayer = ({
                 </div>
             )}
 
+            {/* ── Error Overlay ─────────────────────────────────────────────── */}
             {playbackError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-20 space-y-4 bg-black/90 backdrop-blur-md z-20">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-10 space-y-4 bg-black/90 backdrop-blur-md z-20">
                     <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/10">
                         <X className="w-8 h-8 text-red-500" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">Playback Failed</h3>
-                    <p className="text-gray-400 max-w-xs mx-auto mb-8 font-medium">{playbackError}</p>
-                    
+                    <p className="text-gray-400 max-w-xs mx-auto mb-4 font-medium">{playbackError}</p>
+
                     {/* Diagnostic Info */}
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-8 max-w-lg mx-auto text-left">
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 max-w-lg mx-auto text-left">
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Diagnostic Data</p>
                         <div className="space-y-1 font-mono text-[10px] text-gray-400">
-                             <p><span className="text-blue-500">SOURCE:</span> {videoUrl}</p>
-                             <p><span className="text-blue-500">TYPE:</span> {lesson.lesson_type}</p>
-                             <p><span className="text-blue-500">PROTO:</span> {window.location.protocol}</p>
-                             <div className="pt-2">
-                                <a 
-                                    href={videoUrl} 
-                                    target="_blank" 
+                            <p><span className="text-blue-500">SOURCE:</span> {videoUrl}</p>
+                            <p><span className="text-blue-500">TYPE:</span> {lesson.lesson_type} ({videoType})</p>
+                            <div className="pt-2">
+                                <a
+                                    href={videoUrl}
+                                    target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-blue-400 hover:text-blue-300 underline font-bold"
+                                    className="text-blue-400 hover:text-blue-300 underline font-bold flex items-center gap-1"
                                 >
+                                    <ExternalLink className="w-3 h-3" />
                                     Open Direct Link in New Tab
                                 </a>
-                             </div>
+                            </div>
                         </div>
                     </div>
 
                     <button
                         onClick={() => { setPlaybackError(null); setIsLoading(true); setIsPlaying(true); }}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all relative z-30"
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all"
                     >
                         Retry Playback
                     </button>
                 </div>
             )}
 
+            {/* ── Video Controls ────────────────────────────────────────────── */}
             <VideoControls
                 isPlaying={isPlaying}
                 duration={duration}
@@ -232,7 +255,11 @@ export const CinemaPlayer = ({
                 onTogglePlay={() => setIsPlaying(!isPlaying)}
                 onSeek={(v) => {
                     setPlayed(v);
-                    playerRef.current?.seekTo(v);
+                    if (nativeVideoRef.current && nativeVideoRef.current.duration) {
+                        nativeVideoRef.current.currentTime = v * nativeVideoRef.current.duration;
+                    } else {
+                        playerRef.current?.seekTo(v);
+                    }
                 }}
                 onVolumeChange={(v) => {
                     setVolume(v);

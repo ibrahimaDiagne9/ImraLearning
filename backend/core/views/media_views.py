@@ -1,10 +1,9 @@
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.utils.http import http_date
+from django.views import View
 import mimetypes
 import os
 import re
-from django.conf import settings
-from django.http import FileResponse, Http404, HttpResponse
-from django.utils.http import http_date
-from django.views import View
 
 class SecureMediaView(View):
     """
@@ -21,16 +20,18 @@ class SecureMediaView(View):
         if not os.path.exists(full_path) or os.path.isdir(full_path):
             raise Http404("File not found.")
 
-        # Determine file info
-        file_size = os.path.getsize(full_path)
-        content_type, _ = mimetypes.guess_type(full_path)
-        content_type = content_type or 'application/octet-stream'
+        # Force correct types for common video formats
+        if full_path.endswith('.mp4'):
+            content_type = 'video/mp4'
+        elif full_path.endswith('.m4v'):
+            content_type = 'video/mp4'
+        elif full_path.endswith('.webm'):
+            content_type = 'video/webm'
         
         # Handle Range Requests (important for video seeking)
         range_header = request.META.get('HTTP_RANGE', '').strip()
         range_match = re.match(r'bytes=(\d+)-(\d*)', range_header) if range_header else None
         
-        response = None
         if range_match:
             first_byte, last_byte = range_match.groups()
             first_byte = int(first_byte)
@@ -41,15 +42,27 @@ class SecureMediaView(View):
                 
             length = last_byte - first_byte + 1
             
-            # Using binary read to stream partial content
-            with open(full_path, 'rb') as f:
-                f.seek(first_byte)
-                data = f.read(length)
-                
-            response = HttpResponse(data, status=206, content_type=content_type)
+            def file_iterator(path, offset, size):
+                with open(path, 'rb') as f:
+                    f.seek(offset)
+                    remaining = size
+                    while remaining > 0:
+                        chunk_size = min(remaining, 8192)
+                        data = f.read(chunk_size)
+                        if not data:
+                            break
+                        yield data
+                        remaining -= len(data)
+
+            response = StreamingHttpResponse(file_iterator(full_path, first_byte, length), status=206, content_type=content_type)
             response['Content-Range'] = f'bytes {first_byte}-{last_byte}/{file_size}'
             response['Accept-Ranges'] = 'bytes'
             response['Content-Length'] = str(length)
+        else:
+            # Standard full file response
+            response = FileResponse(open(full_path, 'rb'), content_type=content_type)
+            response['Content-Length'] = str(file_size)
+            response['Accept-Ranges'] = 'bytes'
         else:
             # Standard full file response
             response = FileResponse(open(full_path, 'rb'), content_type=content_type)
@@ -60,7 +73,8 @@ class SecureMediaView(View):
         origin = request.META.get('HTTP_ORIGIN')
         allowed_origins = [
             'https://imraedu.com', 
-            'https://www.imraedu.com', 
+            'https://www.imraedu.com',
+            'https://imra-learning.vercel.app',
             'http://localhost:5173', 
             'http://localhost:5174'
         ]
@@ -68,8 +82,9 @@ class SecureMediaView(View):
         if origin in allowed_origins:
             response['Access-Control-Allow-Origin'] = origin
             response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-            response['Access-Control-Allow-Headers'] = 'Range, Authorization, Content-Type'
+            response['Access-Control-Allow-Headers'] = 'Range, Authorization, Content-Type, Origin, Accept'
             response['Access-Control-Expose-Headers'] = 'Content-Range, Accept-Ranges, Content-Length'
+            response['Access-Control-Allow-Credentials'] = 'true'
 
         # Cache control for media
         response['Last-Modified'] = http_date(os.path.getmtime(full_path))
