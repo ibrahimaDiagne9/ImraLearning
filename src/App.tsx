@@ -14,6 +14,7 @@ import { InviteStudentModal } from './components/modals/InviteStudentModal';
 import { GoLiveModal } from './components/modals/GoLiveModal';
 import { AddProjectModal } from './components/modals/AddProjectModal';
 import { CreateDiscussionModal } from './components/modals/CreateDiscussionModal';
+import { SafeErrorBoundary } from './components/ui/SafeErrorBoundary';
 import { Loader2 } from 'lucide-react';
 
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -88,7 +89,11 @@ function App() {
               />
             } />
             <Route path="/courses" element={<CoursesPage userRole={userRole} />} />
-            <Route path="/learn/:courseId" element={<LessonPlayer onBack={() => navigate('/courses')} />} />
+            <Route path="/learn/:courseId" element={
+              <SafeErrorBoundary onReset={() => window.location.reload()}>
+                <LessonPlayer onBack={() => navigate('/courses')} />
+              </SafeErrorBoundary>
+            } />
             <Route path="/analytics" element={<AnalyticsDashboard />} />
             <Route path="/discussions" element={
               <DiscussionsPage

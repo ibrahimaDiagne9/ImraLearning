@@ -138,9 +138,9 @@ export const PlayerView = ({ course, initialLessonId, onBack, setCourse }: Playe
                             )}
 
                             {/* Additional Content (when not in cinema mode) */}
-                            {!player.isCinemaMode && player.activeLesson?.lesson_type === 'video' && (
+                            {!player.isCinemaMode && player.activeLesson?.lesson_type === 'video' && player.activeLesson && (
                                 <PlayerContent
-                                    lesson={player.activeLesson!}
+                                    lesson={player.activeLesson}
                                     isCinemaMode={false}
                                 />
                             )}

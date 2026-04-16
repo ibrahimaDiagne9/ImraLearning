@@ -43,17 +43,21 @@ export const useLessonPlayer = (course: Course | null, initialLessonId?: number 
     const playerRef = useRef<any>(null);
 
     // Derived State
-    const allLessons = useMemo(() =>
-        course?.sections?.flatMap(s => s.lessons) || [],
-        [course]);
+    const allLessons = useMemo(() => {
+        if (!course || !Array.isArray(course.sections)) return [];
+        return course.sections.flatMap(s => Array.isArray(s.lessons) ? s.lessons : []);
+    }, [course]);
 
-    const activeLesson = useMemo(() =>
-        allLessons.find(l => l.id === activeLessonId) || allLessons[0],
-        [allLessons, activeLessonId]);
+    const activeLesson = useMemo(() => {
+        if (allLessons.length === 0) return null;
+        const found = allLessons.find(l => l.id === activeLessonId);
+        return found || allLessons[0] || null;
+    }, [allLessons, activeLessonId]);
 
-    const activeLessonIndex = useMemo(() =>
-        allLessons.findIndex(l => l.id === activeLesson?.id),
-        [allLessons, activeLesson]);
+    const activeLessonIndex = useMemo(() => {
+        if (!activeLesson || allLessons.length === 0) return -1;
+        return allLessons.findIndex(l => l.id === activeLesson.id);
+    }, [allLessons, activeLesson]);
 
     // Actions
     const handleNext = useCallback(() => {

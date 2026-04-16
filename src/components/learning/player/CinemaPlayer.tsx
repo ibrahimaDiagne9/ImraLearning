@@ -1,11 +1,10 @@
 import { useEffect } from 'react';
 import ReactPlayerImport from 'react-player';
+const ReactPlayer = ReactPlayerImport as any;
 import { Sparkles, Info, X } from 'lucide-react';
 import { VideoControls } from '../VideoControls';
 import { getVideoUrl } from '../../../utils/videoUtils';
 import type { Lesson } from '../../../hooks/useLessonPlayer';
-
-const ReactPlayer = ReactPlayerImport as any;
 
 interface CinemaPlayerProps {
     lesson: Lesson;
@@ -111,8 +110,9 @@ export const CinemaPlayer = ({
 
     return (
         <div className="group relative w-full h-full bg-black overflow-hidden select-none">
-            <ReactPlayer
-                key={lesson.id}
+            {lesson && (
+                <ReactPlayer
+                    key={lesson.id}
                 ref={playerRef}
                 url={videoUrl}
                 width="100%"
@@ -135,7 +135,7 @@ export const CinemaPlayer = ({
                     youtube: {
                         playerVars: { showinfo: 0, rel: 0, modestbranding: 1 }
                     }
-                }}
+                } as any}
                 onBuffer={() => setIsLoading(true)}
                 onBufferEnd={() => setIsLoading(false)}
                 onReady={() => {
@@ -159,6 +159,7 @@ export const CinemaPlayer = ({
                     setPlaybackError("Failed to play video. Source might be unavailable or format unsupported.");
                 }}
             />
+            )}
 
             {isLoading && !playbackError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm transition-all z-10 pointer-events-none">
