@@ -70,7 +70,9 @@ export const CinemaPlayer = ({
         if (!playerRef.current) return;
         
         // Get the actual video element if possible
-        const internal = playerRef.current.getInternalPlayer();
+        const internal = typeof playerRef.current.getInternalPlayer === 'function' 
+            ? playerRef.current.getInternalPlayer() 
+            : null;
         const videoElement = (internal && internal.tagName === 'VIDEO') ? internal : null;
 
         if (videoElement) {
@@ -141,7 +143,7 @@ export const CinemaPlayer = ({
                 onReady={() => {
                     setIsLoading(false);
                     // Sync initial state if needed
-                    if (playerRef.current) {
+                    if (playerRef.current && typeof playerRef.current.getInternalPlayer === 'function') {
                         const internal = playerRef.current.getInternalPlayer();
                         if (internal && internal.tagName === 'VIDEO') {
                             internal.volume = volume;
