@@ -60,6 +60,22 @@ export const CinemaPlayer = ({
 
     console.log('🎥 [CinemaPlayer] URL:', videoUrl, '| Type:', videoType);
 
+    // Clean YouTube URLs - strip list/radio params that break embeds
+    const cleanVideoUrl = (url: string | null) => {
+        if (!url) return url;
+        try {
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                const parsed = new URL(url);
+                const videoId = parsed.searchParams.get('v');
+                if (videoId) {
+                    return `https://www.youtube.com/watch?v=${videoId}`;
+                }
+            }
+        } catch {}
+        return url;
+    };
+    const resolvedUrl = cleanVideoUrl(videoUrl);
+
     // ─── Native video controls ─────────────────────────────────────────────
     useEffect(() => {
         const vid = nativeVideoRef.current;
@@ -167,7 +183,7 @@ export const CinemaPlayer = ({
                 <ReactPlayer
                     key={lesson.id}
                     ref={playerRef}
-                    url={videoUrl}
+                    url={resolvedUrl!}
                     width="100%"
                     height="100%"
                     playing={isPlaying}
@@ -190,8 +206,14 @@ export const CinemaPlayer = ({
                     onPause={() => setIsPlaying(false)}
                     onEnded={onEnded}
                     onError={(e: any) => {
+                        // Ignore AbortError - it's browser noise when React mounts/unmounts
+                        const isAbort = e?.message?.includes('abort') || e?.name === 'AbortError';
+                        if (isAbort) {
+                            console.warn('[CinemaPlayer] YouTube: AbortError (ignored, browser noise)');
+                            return;
+                        }
                         console.error('ReactPlayer Error:', e);
-                        setPlaybackError('External video failed to load. Check URL or network.');
+                        setPlaybackError('External video failed to load. The link may be private or unsupported.');
                     }}
                 />
             )}
@@ -219,7 +241,7 @@ export const CinemaPlayer = ({
                     <div className="bg-white/5 border border-white/10 rounded-xl p-4 max-w-lg mx-auto text-left">
                         <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Diagnostic Data</p>
                         <div className="space-y-1 font-mono text-[10px] text-gray-400">
-                            <p><span className="text-blue-500">SOURCE:</span> {videoUrl}</p>
+                            <p><span className="text-blue-500">SOURCE:</span> {resolvedUrl}</p>
                             <p><span className="text-blue-500">TYPE:</span> {lesson.lesson_type} ({videoType})</p>
                             <div className="pt-2">
                                 <a
