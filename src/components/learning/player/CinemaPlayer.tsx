@@ -93,6 +93,11 @@ export const CinemaPlayer = ({
 
     if (!lesson) return null;
     const videoUrl = getVideoUrl(lesson);
+    
+    // Senior Debug: Log the resolved URL to help identify production config issues
+    if (process.env.NODE_ENV !== 'production' || true) {
+        console.log("🎥 [CinemaPlayer] Resolved Video URL:", videoUrl);
+    }
 
     if (!videoUrl) {
         return (
