@@ -21,12 +21,15 @@ class SecureMediaView(View):
             raise Http404("File not found.")
 
         # Force correct types for common video formats
+        content_type = 'application/octet-stream'
         if full_path.endswith('.mp4'):
             content_type = 'video/mp4'
         elif full_path.endswith('.m4v'):
             content_type = 'video/mp4'
         elif full_path.endswith('.webm'):
             content_type = 'video/webm'
+        
+        file_size = os.path.getsize(full_path)
         
         # Handle Range Requests (important for video seeking)
         range_header = request.META.get('HTTP_RANGE', '').strip()
@@ -58,11 +61,6 @@ class SecureMediaView(View):
             response['Content-Range'] = f'bytes {first_byte}-{last_byte}/{file_size}'
             response['Accept-Ranges'] = 'bytes'
             response['Content-Length'] = str(length)
-        else:
-            # Standard full file response
-            response = FileResponse(open(full_path, 'rb'), content_type=content_type)
-            response['Content-Length'] = str(file_size)
-            response['Accept-Ranges'] = 'bytes'
         else:
             # Standard full file response
             response = FileResponse(open(full_path, 'rb'), content_type=content_type)
